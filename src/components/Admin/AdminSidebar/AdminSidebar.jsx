@@ -27,8 +27,8 @@ const Sidebar = () => {
 
   const user = useSelector((state) => state.user.user);
   const role = user?.role;
-  console.log("user",user);
-  
+  console.log("user", user);
+
 
   const showLogoutConfirm = () => {
     setIsLogoutModalOpen(true);
@@ -69,9 +69,6 @@ const Sidebar = () => {
               </Menu.Item>
               <Menu.Item key="/system/admin/project" icon={<BarChartOutlined />}>
                 <Link to="/system/admin/project">Quản lý dự án</Link>
-              </Menu.Item>
-                <Menu.Item key="/system/admin/file" icon={<BarChartOutlined />}>
-                <Link to="/system/admin/file">Quản lý file</Link>
               </Menu.Item>
               <Menu.Item key="/system/admin/report" icon={<BarChartOutlined />}>
                 <Link to="/system/admin/report">Báo cáo & Thống kê</Link>

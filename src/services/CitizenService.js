@@ -8,7 +8,7 @@ export async function getAll(token) {
 }
 
 export async function getById(id, token) {
-  const res = await axios.get(`${process.env.REACT_APP_API_URL}/citizens/get-by-id/${id}`, {
+  const res = await axios.get(`${process.env.REACT_APP_API_URL}/households/get-by-id/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return res.data;
@@ -22,14 +22,14 @@ export async function create(data, token) {
 }
 
 export async function update(id, data, token) {
-  const res = await axios.put(`${process.env.REACT_APP_API_URL}/citizens/update/${id}`, data, {
+  const res = await axios.put(`${process.env.REACT_APP_API_URL}/households/update/${id}`, data, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return res.data;
 }
 
 export async function remove(id, token) {
-  const res = await axios.delete(`${process.env.REACT_APP_API_URL}/citizens/delete/${id}`, {
+  const res = await axios.delete(`${process.env.REACT_APP_API_URL}/households/delete/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return res.data;

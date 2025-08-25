@@ -10,7 +10,6 @@ import AssessPage from "../AssessPage/AssessPage";
 import EmployeePage from "../EmployeePage/EmployeePage";
 import CitizenPage from "../CitizenPage/CitizenPage";
 import ProjectPage from "../ProjectPage/ProjectPage";
-import FilePage from "../FilePage/FilePage";
 
 const AdminLayout = ({ children }) => {
   const location = useLocation();
@@ -29,9 +28,6 @@ const AdminLayout = ({ children }) => {
     }
     if (location.pathname === "/system/admin/project") {
       return <ProjectPage />;
-    }
-    if (location.pathname === "/system/admin/file") {
-      return <FilePage />;
     }
     
     return <AdminDashboard />;
