@@ -6,7 +6,7 @@ const API_URL = `${process.env.REACT_APP_API_URL}/projects`;
 
 export const getAllProjects = async (token) => {
     try {
-        const res = await axiosJWT.get(API_URL, {
+        const res = await axiosJWT.get(`${process.env.REACT_APP_API_URL}/projects/get-all`, {
             headers: { Authorization: `Bearer ${token}` },
         });
         return res.data;
@@ -30,7 +30,7 @@ export const createProject = async (data, token) => {
 
 export const deleteProject = async (id, token) => {
     try {
-        const res = await axiosJWT.delete(`${API_URL}/${id}`, {
+        const res = await axiosJWT.delete(`${process.env.REACT_APP_API_URL}/projects/delete/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
         });
         return res.data;
@@ -39,8 +39,29 @@ export const deleteProject = async (id, token) => {
     }
 };
 
+
+export const updateProject = async (id, data, token) => {
+  try {
+    const res = await axiosJWT.put(
+      `${process.env.REACT_APP_API_URL}/projects/update/${id}`,
+      data,
+      {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json" 
+        },
+      }
+    );
+    return res.data;
+  } catch (err) {
+    throw err.response?.data || { message: "Lỗi sửa dự án" };
+  }
+};
+
+
 export default {
     getAllProjects,
     createProject,
     deleteProject,
+    updateProject
 };

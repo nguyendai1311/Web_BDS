@@ -8,6 +8,9 @@ import { updateUser } from "../../../redux/slices/userSlice";
 import InputForm from "../../../components/InputForm/InputForm";
 import { EyeFilled, EyeInvisibleFilled } from "@ant-design/icons";
 import ButtonComponent from "../../../components/ButtonComponent/ButtonComponent";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 import {
   SigninContainer,
   SigninForm,
@@ -15,11 +18,7 @@ import {
   StyledInputWrapper,
   EyeIcon,
   ForgotLink,
-  SignupLink,
-  BoldText,
 } from "./style";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
 const SignInPages = () => {
   const [isShowPassword, setIsShowPassword] = useState(false);
@@ -45,13 +44,7 @@ const SignInPages = () => {
 
     if (isError) {
       const errorMessage = error?.response?.data?.message || "Đã có lỗi xảy ra. Vui lòng thử lại.";
-      if (errorMessage.includes("email")) {
-        toast.error("Email không tồn tại.");
-      } else if (errorMessage.includes("password")) {
-        toast.error("Sai mật khẩu hoặc định dạng mật khẩu không hợp lệ.");
-      } else {
-        toast.error(errorMessage);
-      }
+      toast.error(errorMessage);
     }
   }, [isSuccess, isError, error]);
 
@@ -62,11 +55,8 @@ const SignInPages = () => {
       const res = await UserService.getDetailsUser(id, token);
       const userData = res?.data;
 
-      // ✅ Xác định role
       let role = "employee";
-      if (userData.roles && userData.roles.includes("admin")) {
-        role = "admin";
-      }
+      if (userData.roles && userData.roles.includes("admin")) role = "admin";
 
       const userObj = {
         ...userData,
@@ -75,16 +65,15 @@ const SignInPages = () => {
         refresh_token: refreshToken,
       };
 
-      // ✅ Lưu cả user vào localStorage
       localStorage.setItem("user", JSON.stringify(userObj));
-
       dispatch(updateUser(userObj));
 
+      // ✅ Navigate sau khi lưu user xong
       if (role === "admin") {
-        navigate("/system/admin");
+        navigate("/system/admin", { replace: true });
       } else {
-        const redirectPath = location?.state || "/";
-        navigate(redirectPath);
+        const redirectPath = location.state?.from || "/";
+        navigate(redirectPath, { replace: true });
       }
 
       toast.success("Đăng nhập thành công!");
@@ -93,23 +82,9 @@ const SignInPages = () => {
     }
   };
 
-
-
   const handleSignIn = () => {
     if (!email || !password) {
       toast.warning("Vui lòng điền đầy đủ thông tin.");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.warning("Email không đúng định dạng.");
-      return;
-    }
-
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{6,}$/;
-    if (!passwordRegex.test(password)) {
-      toast.warning("Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ và số.");
       return;
     }
 
@@ -124,11 +99,7 @@ const SignInPages = () => {
           <p style={{ marginBottom: "15px", fontSize: "18px" }}>Đăng nhập</p>
 
           <StyledInputWrapper>
-            <InputForm
-              placeholder="Abc@gmail.com"
-              value={email}
-              onChange={(val) => setEmail(val)}
-            />
+            <InputForm placeholder="Email" value={email} onChange={(val) => setEmail(val)} />
           </StyledInputWrapper>
 
           <StyledInputWrapper style={{ position: "relative" }}>
@@ -163,10 +134,7 @@ const SignInPages = () => {
             }}
           />
 
-          <ForgotLink onClick={() => navigate("/forgot-password")}>
-            Quên mật khẩu?
-          </ForgotLink>
-
+          <ForgotLink onClick={() => navigate("/forgot-password")}>Quên mật khẩu?</ForgotLink>
         </SigninContent>
       </SigninForm>
 

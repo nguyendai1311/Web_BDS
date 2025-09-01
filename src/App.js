@@ -9,7 +9,7 @@ import { resetUser, updateUser } from "./redux/slices/userSlice";
 import Loading from "./components/LoadingComponent/LoadingComponent";
 import PrivateRoute from "./components/PrivateRoute/PrivateRoute";
 import AccessDeniedPage from "./pages/User/AccessDeniedPage/AccessDeniedPage";
-import SignInPage from "./pages/User/SignInPages/SignInPages"
+import SignInPage from "./pages/User/SignInPages/SignInPages";
 
 function App() {
   const dispatch = useDispatch();
@@ -33,7 +33,6 @@ function App() {
     initUser();
   }, []);
 
-  // Lấy token từ localStorage hoặc Redux
   const handleDecoded = () => {
     let storageData = user?.access_token || localStorage.getItem("access_token");
     let decoded = {};
@@ -42,6 +41,31 @@ function App() {
       decoded = jwtDecode(storageData);
     }
     return { decoded, storageData };
+  };
+
+  const handleGetDetailsUser = async (id, token) => {
+    try {
+      const res = await UserService.getDetailsUser(id, token);
+      const storageRefreshToken = localStorage.getItem("refresh_token");
+      const refreshToken = storageRefreshToken ? JSON.parse(storageRefreshToken) : null;
+
+      const userData = res?.data;
+      let role = "employee";
+      if (userData.roles && userData.roles.includes("admin")) role = "admin";
+
+      const userObj = {
+        ...userData,
+        role,
+        access_token: token,
+        refresh_token: refreshToken,
+      };
+
+      localStorage.setItem("user", JSON.stringify(userObj));
+      dispatch(updateUser(userObj));
+    } catch (err) {
+      console.error("Lỗi lấy chi tiết user:", err);
+      dispatch(resetUser());
+    }
   };
 
   // Interceptor axiosJWT
@@ -72,32 +96,25 @@ function App() {
     };
   }, [dispatch, user?.access_token]);
 
-  // Lấy chi tiết user từ API
-  const handleGetDetailsUser = async (id, token) => {
-    try {
-      const res = await UserService.getDetailsUser(id, token);
-      const storageRefreshToken = localStorage.getItem("refresh_token");
-      const refreshToken = storageRefreshToken ? JSON.parse(storageRefreshToken) : null;
-
-      dispatch(
-        updateUser({
-          ...res?.data,
-          access_token: token,
-          refreshToken: refreshToken,
-        })
-      );
-    } catch (err) {
-      console.error("Lỗi lấy chi tiết user:", err);
-    }
-  };
-
   return (
     <div style={{ height: "100vh", width: "100%" }}>
       <Loading isLoading={isLoading}>
         <Router>
           <Routes>
-             <Route path="/" element={<Navigate to="/sign-in" replace />} />
+            {/* Route gốc: nếu đã login → chuyển sang dashboard, nếu chưa → sign-in */}
+            <Route
+              path="/"
+              element={
+                user?.access_token
+                  ? user.role === "admin"
+                    ? <Navigate to="/system/admin" replace />
+                    : <Navigate to="/system/employee" replace />
+                  : <Navigate to="/sign-in" replace />
+              }
+            />
+
             <Route path="/sign-in" element={<SignInPage />} />
+
             {routes.map((route) => {
               if (route.children) {
                 const Layout = route.layout;

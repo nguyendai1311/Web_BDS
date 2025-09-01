@@ -2,6 +2,9 @@ import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import courseReducer from "./slices/courseSlice";
 import userReducer from "./slices/userSlice";
 import orderReducer from "./slices/orderSlice";
+import projectReducer from "./slices/projectSlice";
+import employeeReducer from "./slices/employeeSlice"; 
+
 import {
   persistStore,
   persistReducer,
@@ -18,13 +21,15 @@ const persistConfig = {
   key: "root",
   version: 1,
   storage,
-  blacklist: ["product"]
+  blacklist: ["product"], // nếu có slice nào không muốn persist thì thêm vào đây
 };
 
 const rootReducer = combineReducers({
   course: courseReducer,
   user: userReducer,
   order: orderReducer,
+  project: projectReducer,
+  employee: employeeReducer, // thêm employee slice
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -39,4 +44,4 @@ export const store = configureStore({
     }),
 });
 
-export let persistor = persistStore(store);
+export const persistor = persistStore(store);

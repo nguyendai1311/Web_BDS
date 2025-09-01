@@ -31,8 +31,9 @@ import {
   HeaderActions,
   CenteredAction,
 } from "./style";
-import dayjs from "dayjs";
 import { renderFileList } from "../../../utils/fileRender";
+import { parseDayjsToDate, toDayjsOrNull, normalizeDate } from "../../../utils/date";
+
 
 export default function CitizenPage() {
   const [citizens, setCitizens] = useState([]);
@@ -52,30 +53,6 @@ export default function CitizenPage() {
   const [viewForm] = Form.useForm();
   const user = JSON.parse(localStorage.getItem("user"));
 
-  const parseDayjsToDate = (dayjsObj) => {
-    if (!dayjsObj) return null;
-    if (dayjs.isDayjs(dayjsObj)) return dayjsObj.toDate();
-    const d = dayjs(dayjsObj, "DD/MM/YYYY", true);
-    return d.isValid() ? d.toDate() : null;
-  };
-
-  const toDayjsOrNull = (value) => {
-    if (!value) return null;
-    if (dayjs.isDayjs(value)) return value;
-    if (value._seconds) return dayjs.unix(value._seconds);
-    const parsed = dayjs(value, "DD/MM/YYYY", true);
-    if (parsed.isValid()) return parsed;
-    const parsed2 = dayjs(value);
-    return parsed2.isValid() ? parsed2 : null;
-  };
-
-  const normalizeDate = (ts) => {
-    if (!ts) return null;
-    if (ts._seconds) return dayjs.unix(ts._seconds).format("DD/MM/YYYY");
-    if (dayjs.isDayjs(ts)) return ts.format("DD/MM/YYYY");
-    const d = dayjs(ts);
-    return d.isValid() ? d.format("DD/MM/YYYY") : null;
-  };
 
   useEffect(() => {
     const fetchCitizens = async () => {
@@ -714,10 +691,10 @@ export default function CitizenPage() {
             <Divider orientation="left">Thông tin cơ bản</Divider>
 
             {[
-              { label: "Biên nhận", value: viewingCitizen.receiptNo },
-              { label: "Họ tên", value: viewingCitizen.fullName },
-              { label: "SĐT", value: viewingCitizen.phone },
-              { label: "Địa chỉ", value: viewingCitizen.address },
+              { label: "Mã hộ dân", value: viewingCitizen.maHoDan },
+              { label: "Họ tên", value: viewingCitizen.hoTenChuSuDung },
+              { label: "SĐT", value: viewingCitizen.soDienThoaiLienLac },
+              { label: "Địa chỉ", value: viewingCitizen.diaChiThuongTru },
             ].map((field, index) => (
               <Row key={index} style={{ marginBottom: 12 }} align="middle">
                 <Col span={4}>

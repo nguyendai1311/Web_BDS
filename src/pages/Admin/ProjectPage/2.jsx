@@ -183,89 +183,6 @@ export default function ProjectPage() {
     fetchProjects();
   }, []);
 
-  // Thêm useEffect này vào component của bạn để khôi phục dữ liệu
-useEffect(() => {
-  // Khôi phục dữ liệu khi modal mở
-  if (isModalVisible) {
-    const tempData = localStorage.getItem("tempFormData");
-    if (tempData) {
-      try {
-        const { formValues, selectedHouseholds, selectedEmployees } = JSON.parse(tempData);
-        
-        // Khôi phục form values
-        if (formValues) {
-          form.setFieldsValue(formValues);
-        }
-        
-        // Khôi phục selected households (dispatch action để update Redux store)
-        if (selectedHouseholds && selectedHouseholds.length > 0) {
-          dispatch(setSelectedHouseholds(selectedHouseholds));
-        }
-        
-        // Khôi phục selected employees (dispatch action để update Redux store)
-        if (selectedEmployees && selectedEmployees.length > 0) {
-          dispatch(setSelectedEmployees(selectedEmployees));
-        }
-        
-        // Xóa dữ liệu tạm thời sau khi khôi phục
-        localStorage.removeItem("tempFormData");
-      } catch (error) {
-        console.error("Error parsing temporary data:", error);
-        localStorage.removeItem("tempFormData");
-      }
-    }
-  }
-}, [isModalVisible, form, dispatch]);
-
-// Thêm useEffect để kiểm tra xem có cần mở lại modal không
-useEffect(() => {
-  const reopenModal = localStorage.getItem("reopenModal");
-  if (reopenModal) {
-    try {
-      const { type, projectId } = JSON.parse(reopenModal);
-      
-      // Mở lại modal
-      setIsModalVisible(true);
-      
-      if (type === "edit" && projectId && projectId !== "new") {
-        // Tìm và set editing project
-        const project = projects.find(p => p.id === projectId);
-        if (project) {
-          setEditingProject(project);
-        }
-      }
-      
-      // Xóa flag sau khi xử lý
-      localStorage.removeItem("reopenModal");
-    } catch (error) {
-      console.error("Error parsing reopen modal data:", error);
-      localStorage.removeItem("reopenModal");
-    }
-  }
-}, [projects, setIsModalVisible, setEditingProject]);
-
-// Hoặc nếu bạn muốn tự động mở modal khi quay lại từ trang khác,
-// có thể thêm vào useEffect khi component mount:
-useEffect(() => {
-  const checkReopenModal = () => {
-    const reopenModal = localStorage.getItem("reopenModal");
-    if (reopenModal) {
-      const { type, projectId } = JSON.parse(reopenModal);
-      setIsModalVisible(true);
-      
-      if (type === "edit" && projectId !== "new") {
-        const project = projects.find(p => p.id === projectId);
-        if (project) {
-          setEditingProject(project);
-        }
-      }
-      
-      localStorage.removeItem("reopenModal");
-    }
-  };
-
-  checkReopenModal();
-}, []);
   // ================== Fetch households / employees ==================
   const fetchHouseholds = async () => {
     try {
@@ -768,20 +685,9 @@ useEffect(() => {
                       type="link"
                       icon={<EditOutlined />}
                       onClick={() => {
-                        // Lưu tất cả dữ liệu hiện tại
-                        const formData = form.getFieldsValue();
-                        const tempData = {
-                          formValues: formData,
-                          selectedHouseholds,
-                          selectedEmployees
-                        };
-                        localStorage.setItem("tempFormData", JSON.stringify(tempData));
-                        
+                        saveTemporaryData();
                         setIsModalVisible(false);
-                        localStorage.setItem("reopenModal", JSON.stringify({ 
-                          type: "edit", 
-                          projectId: editingProject?.id 
-                        }));
+                        localStorage.setItem("reopenModal", JSON.stringify({ type: "edit", projectId: editingProject?.id }));
                         navigate(`/system/admin/households/${editingProject?.id}/edit`);
                       }}
                     >
@@ -792,19 +698,16 @@ useEffect(() => {
                       type="dashed"
                       icon={<PlusOutlined />}
                       onClick={() => {
-                        // Lưu tất cả dữ liệu hiện tại
-                        const formData = form.getFieldsValue();
-                        const tempData = {
-                          formValues: formData,
-                          selectedHouseholds,
-                          selectedEmployees
-                        };
-                        localStorage.setItem("tempFormData", JSON.stringify(tempData));
-                        
+                        saveTemporaryData();
                         setIsModalVisible(false);
                         localStorage.setItem("reopenModal", JSON.stringify({
                           type: "add",
-                          projectId: "new"
+                          projectId: "new",
+                          restoreData: {
+                            formValues: form.getFieldsValue(),
+                            selectedHouseholds,
+                            selectedEmployees
+                          }
                         }));
                         navigate(`/system/admin/households/new/add`);
                       }}
@@ -820,6 +723,22 @@ useEffect(() => {
               </Space>
             </Col>
           </Row>
+
+          {/* Hiển thị danh sách hộ dân đã chọn */}
+          {selectedHouseholds.length > 0 && (
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={4}><label>Hộ dân đã chọn:</label></Col>
+              <Col span={20}>
+                <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid #d9d9d9', padding: 8, borderRadius: 4 }}>
+                  {selectedHouseholds.map((household, index) => (
+                    <div key={household.id || index} style={{ marginBottom: 4 }}>
+                      <span style={{ fontWeight: 500 }}>{household.maHoDan}</span> - {household.hoTenChuSuDung || household.ownerName}
+                    </div>
+                  ))}
+                </div>
+              </Col>
+            </Row>
+          )}
 
           {/* Thông tin cơ bản */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
@@ -1143,22 +1062,12 @@ useEffect(() => {
                 type="link"
                 icon={<EyeOutlined />}
                 onClick={() => {
-                  // Lưu tất cả dữ liệu hiện tại
-                  const formData = form.getFieldsValue();
-                  const tempData = {
-                    formValues: formData,
-                    selectedHouseholds,
-                    selectedEmployees
-                  };
-                  localStorage.setItem("tempFormData", JSON.stringify(tempData));
-                  
+                  saveTemporaryData();
                   setIsModalVisible(false);
-                  localStorage.setItem("reopenModal", JSON.stringify({ 
-                    type: editingProject ? "edit" : "add", 
-                    projectId: editingProject?.id || "new" 
-                  }));
-                  navigate(`/system/admin/employees/${editingProject?.id || "new"}/edit`);
+                  localStorage.setItem("reopenModal", JSON.stringify({ type: "edit", projectId: editingProject?.id }));
+                  navigate(`/system/admin/employees/${editingProject?.id}/edit`);
                 }}
+                disabled={!editingProject?.id}
               >
                 Xem
               </Button>
@@ -1191,9 +1100,6 @@ useEffect(() => {
                   dispatch(clearHouseholds());
                   dispatch(clearEmployees());
                   form.resetFields();
-                  // Xóa dữ liệu tạm thời khi hủy
-                  localStorage.removeItem("tempFormData");
-                  localStorage.removeItem("reopenModal");
                 }}
                 style={{ marginRight: 8 }}
               >
