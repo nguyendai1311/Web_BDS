@@ -4,6 +4,7 @@ const initialState = {
   projects: [],
   selectedHouseholds: [],
   selectedEmployees: [],
+  selectedLandPrices: [],
 };
 
 const projectSlice = createSlice({
@@ -41,6 +42,22 @@ const projectSlice = createSlice({
     setSelectedEmployees: (state, action) => {
       state.selectedEmployees = action.payload; // set mảng trực tiếp
     },
+
+    //Land
+     addLandPrice: (state, action) => {
+      state.selectedLandPrices.push(action.payload);
+    },
+    removeLandPrice: (state, action) => {
+      state.selectedLandPrices = state.selectedLandPrices.filter(
+        (l) => l.id !== action.payload.id
+      );
+    },
+    clearLandPrices: (state) => {
+      state.selectedLandPrices = [];
+    },
+    setSelectedLandPrices: (state, action) => {
+      state.selectedLandPrices = action.payload; // set mảng trực tiếp
+    },
     //ReOpenModal
     setReopenModal: (state, action) => {
       state.reopenModal = action.payload;  // "view" | "edit" | null
@@ -52,7 +69,7 @@ const projectSlice = createSlice({
 });
 
 export const {
-  addHousehold,
+   addHousehold,
   removeHousehold,
   clearHouseholds,
   setSelectedHouseholds,
@@ -60,6 +77,10 @@ export const {
   removeEmployee,
   clearEmployees,
   setSelectedEmployees,
+  addLandPrice,
+  removeLandPrice,
+  clearLandPrices,
+  setSelectedLandPrices,
   setReopenModal,
   clearReopenModal
 } = projectSlice.actions;

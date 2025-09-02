@@ -7,11 +7,11 @@ import AssessPage from "../pages/Admin/AssessPage/AssessPage";
 import AccessDeniedPage from "../pages/User/AccessDeniedPage/AccessDeniedPage";
 import EmployeePage from "../pages/Admin/EmployeePage/EmployeePage";
 import CitizenPage from "../pages/Admin/CitizenPage/CitizenPage";
-import SelectHouseholdPage from "../pages/Admin/SelectHouseholdPage/SelectHouseholdPage";
-import SelectEmployeePage from "../pages/Admin/SelectEmployeePage/SelectEmployeePage";
-import HouseholdDetailPage from "../pages/Admin/DetailPage/DetailPage";
+import HouseHoldSelectPage from "../pages/Admin/HouseHoldSelectPage/HouseHoldSelectPage";
 import ProjectPage from "../pages/Admin/ProjectPage/ProjectPage";
-import EditPage from "../pages/Admin/EditPage/EditPage";
+import EmployeeSelectPage from "../pages/Admin/EmployeeSelectPage/EmployeeSelectPage";
+import LandPricePage from "../pages/Admin/LandPricePage/LandPricePage";
+import LandPriceDetailPage from "../pages/Admin/LandPriceSelectPage/LandPriceSelectPage";
 
 export const routes = [
   {
@@ -38,11 +38,10 @@ export const routes = [
       { path: "assess", page: AssessPage },
       { path: "report", page: ReportPage },
       { path: "project", page: ProjectPage },
-      { path: "project/select", page: SelectHouseholdPage },
-      { path: "project/select-employee", page: SelectEmployeePage },
-      { path: "employees/:id/:mode", page: EditPage },   
-      { path: "households/:id/:mode", page: HouseholdDetailPage },
-
+      { path: "employees/:id/:mode", page: EmployeeSelectPage },   
+      { path: "households/:id/:mode", page: HouseHoldSelectPage },
+      { path: "lands/:id/:mode", page: LandPriceDetailPage },
+      { path: "lands", page: LandPricePage },
     ],
   },
   {

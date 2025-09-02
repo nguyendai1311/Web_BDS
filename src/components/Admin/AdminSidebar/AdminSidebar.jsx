@@ -70,6 +70,9 @@ const Sidebar = () => {
               <Menu.Item key="/system/admin/project" icon={<BarChartOutlined />}>
                 <Link to="/system/admin/project">Quản lý dự án</Link>
               </Menu.Item>
+              <Menu.Item key="/system/admin/lands" icon={<BarChartOutlined />}>
+                <Link to="/system/admin/lands">Quản lý đất</Link>
+              </Menu.Item>
               <Menu.Item key="/system/admin/report" icon={<BarChartOutlined />}>
                 <Link to="/system/admin/report">Báo cáo & Thống kê</Link>
               </Menu.Item>

@@ -12,6 +12,7 @@ import ReportPage from "../ReportPage/ReportPage";
 import AssessPage from "../AssessPage/AssessPage";
 import DetailPage from "../../../pages/Admin/DetailPage/DetailPage";
 import EditPage from "../../../pages/Admin/EditPage/EditPage";
+import LandPricePage from "../../../pages/Admin/LandPricePage/LandPricePage";
 
 const AdminLayout = ({ children }) => {
   const location = useLocation();
@@ -37,6 +38,9 @@ const AdminLayout = ({ children }) => {
     }
     if (location.pathname === "/system/admin/employees/:id" ) {
       return <EditPage />;
+    }
+    if (location.pathname === "/system/admin/lands" ) {
+      return <LandPricePage />;
     }
     
     return <AdminDashboard />;

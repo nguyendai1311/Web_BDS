@@ -14,26 +14,6 @@ export async function getById(id, token) {
   return res.data;
 }
 
-export const getHouseHoldByIds = async (ids, token) => {
-  if (!Array.isArray(ids) || ids.length === 0) {
-    throw new Error("ids phải là mảng và không rỗng");
-  }
-  try {
-    const response = await axios.post(`${process.env.REACT_APP_API_URL}/households/batch`, { ids },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Lỗi khi gọi API getHouseHoldsByIds:", error);
-    throw error;
-  }
-};
-
 export async function create(data, token) {
   const res = await axios.post(`${process.env.REACT_APP_API_URL}/households/create`, data, {
     headers: { Authorization: `Bearer ${token}` },

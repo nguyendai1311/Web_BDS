@@ -22,18 +22,19 @@ import dayjs from "dayjs";
 import { useSelector, useDispatch } from "react-redux";
 
 import * as ProjectService from "../../../services/ProjectService";
-import * as HouseholdService from "../../../services/CitizenService";
-import * as EmployeeService from "../../../services/UserService";
-import { uploadFile } from "../../../services/FileService"
+import { convertFileList } from "../../../utils/convertFileList"
 import {
   setSelectedHouseholds,
   setSelectedEmployees,
   clearHouseholds,
-  clearEmployees
+  clearEmployees,
+  setSelectedLandPrices,
+  clearLandPrices
 } from "../../../redux/slices/projectSlice";
 
 import { PageHeader, FilterContainer, HeaderActions, CenteredAction } from "./style";
 import { useLocation, useNavigate } from "react-router-dom";
+import FormUpload from "../../../components/Admin/FormUpload/FormUpload";
 
 export default function ProjectPage() {
   const [projects, setProjects] = useState([]);
@@ -105,7 +106,7 @@ export default function ProjectPage() {
           project_status: proj.project_status || "",
           project_objectives: proj.project_objectives || "",
           project_scale: proj.project_scale || "",
-          project_location:proj.project_location || "",
+          project_location: proj.project_location || "",
           construction_cost: proj.construction_cost || 0,
           project_management_cost: proj.project_management_cost || 0,
           consulting_cost: proj.consulting_cost || 0,
@@ -139,101 +140,156 @@ export default function ProjectPage() {
 
   // ================== Check và mở lại modal khi quay về ==================
   useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  // ================== Reopen Modal nếu có dữ liệu trong localStorage ==================
+  useEffect(() => {
+    if (projects.length === 0) return;
+
     const reopenData = localStorage.getItem("reopenModal");
-    if (!reopenData || projects.length === 0) return;
+    if (!reopenData) return;
 
     try {
       const { type, projectId, restoreData } = JSON.parse(reopenData);
-
-      // clear ngay sau khi đọc
       localStorage.removeItem("reopenModal");
 
-      setTimeout(async () => {
-        if (type === "view" && projectId) {
-          const proj = projects.find(p => p.id === projectId || p.key === projectId);
-          if (proj) {
-            setViewProject(proj);
-            setIsViewModalVisible(true);
-          }
-        }
-        else if (type === "edit" && projectId) {
-          const proj = projects.find(p => p.id === projectId || p.key === projectId);
-          if (proj) {
-            await openModal(proj);
-          }
-        }
-        else if (type === "add" && projectId === "new") {
-          await openModal(null);
+      const proj = projects.find(p => p.id === projectId || p.key === projectId);
+          
+      if (type === "view" && proj) {
+        setViewProject(proj);
+        setIsViewModalVisible(true);
+      }
+      else if (type === "edit" && proj) {
+        openModal(proj);
+      }
+      else if (type === "add" && projectId === "new") {
+        openModal(null);
 
-          // Restore dữ liệu form nếu có
-          if (restoreData?.formValues) {
-            form.setFieldsValue(restoreData.formValues);
-          }
-
-          // Households và employees đã được lưu trong Redux, không cần restore thêm
+        // Restore dữ liệu form nếu có
+        if (restoreData?.formValues) {
+          const formattedValues = {
+            ...restoreData.formValues,
+            approval_date: restoreData.formValues.approval_date ? dayjs(restoreData.formValues.approval_date) : null,
+            map_approval_date: restoreData.formValues.map_approval_date ? dayjs(restoreData.formValues.map_approval_date) : null,
+            land_price_approval_date: restoreData.formValues.land_price_approval_date ? dayjs(restoreData.formValues.land_price_approval_date) : null,
+            plan_approval_date: restoreData.formValues.plan_approval_date ? dayjs(restoreData.formValues.plan_approval_date) : null,
+            compensation_plan_approval_date: restoreData.formValues.compensation_plan_approval_date ? dayjs(restoreData.formValues.compensation_plan_approval_date) : null,
+            site_clearance_start_date: restoreData.formValues.site_clearance_start_date ? dayjs(restoreData.formValues.site_clearance_start_date) : null,
+          };
+          form.setFieldsValue(formattedValues);
         }
-      }, 100);
+
+        if (restoreData?.selectedHouseholds) {
+          dispatch(setSelectedHouseholds(restoreData.selectedHouseholds));
+        }
+        if (restoreData?.selectedEmployees) {
+          dispatch(setSelectedEmployees(restoreData.selectedEmployees));
+        }
+        if (restoreData?.selectedLandPrices) {
+          dispatch(setSelectedLandPrices(restoreData.selectedLandPrices));
+        }
+      }
     } catch (err) {
       console.error("Error parsing reopenModal data:", err);
       localStorage.removeItem("reopenModal");
     }
-  }, [location, projects]);
+  }, [projects]);
 
+
+  // ================== Set form values khi editingProject thay đổi ==================
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (!editingProject) return;
+    const formValues = {
+      project_code: editingProject.project_code,
+      project_name: editingProject.name,
+      investor: editingProject.investor,
+      approval_decision_no: editingProject.approval_decision_no,
+      approval_date: editingProject.approval_date ? dayjs(editingProject.approval_date) : null,
+      map_no: editingProject.map_no,
+      map_approval_date: editingProject.map_approval_date ? dayjs(editingProject.map_approval_date) : null,
+      land_price_decision_no: editingProject.land_price_decision_no,
+      land_price_approval_date: editingProject.land_price_approval_date ? dayjs(editingProject.land_price_approval_date) : null,
+      compensation_plan_decision_no: editingProject.compensation_plan_decision_no,
+      compensation_plan_approval_date: editingProject.compensation_plan_approval_date ? dayjs(editingProject.compensation_plan_approval_date) : null,
+      compensation_plan_no: editingProject.compensation_plan_no,
+      plan_approval_date: editingProject.plan_approval_date ? dayjs(editingProject.plan_approval_date) : null,
+      site_clearance_start_date: editingProject.site_clearance_start_date ? dayjs(editingProject.site_clearance_start_date) : null,
+      project_status: editingProject.project_status,
+      project_objectives: editingProject.project_objectives,
+      project_scale: editingProject.project_scale,
+      project_location: editingProject.project_location,
+      construction_cost: editingProject.construction_cost,
+      project_management_cost: editingProject.project_management_cost,
+      consulting_cost: editingProject.consulting_cost,
+      other_costs: editingProject.other_costs,
+      contingency_cost: editingProject.contingency_cost,
+      land_clearance_cost: editingProject.land_clearance_cost,
+      start_point: editingProject.start_point,
+      end_point: editingProject.end_point,
+      total_length: editingProject.total_length,
+      funding_source: editingProject.funding_source,
+      resettlement_plan: editingProject.resettlement_plan,
+      other_documents: editingProject.other_documents,
+      approval_decision_file: convertFileList(editingProject.approval_decision_file),
+      map_file: convertFileList(editingProject.map_file),
+      land_price_file: convertFileList(editingProject.land_price_file),
+      plan_file: convertFileList(editingProject.plan_file),
+      compensation_plan_file: convertFileList(editingProject.compensation_plan_file),
+      other_files: convertFileList(editingProject.other_files),
+    };
 
-  // ================== Fetch households / employees ==================
-  const fetchHouseholds = async () => {
+    form.setFieldsValue(formValues);
+
+    dispatch(setSelectedHouseholds(editingProject.households || []));
+    dispatch(setSelectedEmployees(editingProject.employees || []));
+    dispatch(setSelectedLandPrices(editingProject.lands || []));
+  }, [editingProject, form, dispatch]);
+
+  // ================== Restore tempFormData khi mở modal ==================
+  useEffect(() => {
+    if (!isModalVisible) return;
+    const tempData = localStorage.getItem("tempFormData");
+    if (!tempData) return;
+
     try {
-      const res = await HouseholdService.getAll(user?.access_token);
-      const list = res?.map((h, i) => ({
-        key: h.id || i.toString(),
-        id: h.id,
-        maHoDan: h.maHoDan,
-        ownerName: h.hoTenChuSuDung || h.ownerName,
-        address: h.diaChiThuongTru || h.address,
-      })) || [];
-      setHouseholds(list);
-      return list;
-    } catch {
-      message.error("Không thể tải danh sách hộ dân!");
-      return [];
-    }
-  };
+      const { formValues, selectedHouseholds, selectedEmployees, selectedLandPrices } = JSON.parse(tempData);
 
-  const fetchEmployees = async () => {
-    try {
-      const res = await EmployeeService.getAllUser(user?.access_token);
-      const list = res?.filter(e => e.roles?.includes("employee")).map((e, i) => ({
-        key: e.id || i.toString(),
-        id: e.id,
-        name: e.email,
-        position: e.roles?.join(", ") || "employee",
-      })) || [];
-      setEmployees(list);
-      return list;
-    } catch {
-      message.error("Không thể tải danh sách nhân viên!");
-      return [];
-    }
-  };
+      if (formValues) {
+        const formattedValues = {
+          ...formValues,
+          approval_date: formValues.approval_date ? dayjs(formValues.approval_date) : null,
+          map_approval_date: formValues.map_approval_date ? dayjs(formValues.map_approval_date) : null,
+          land_price_approval_date: formValues.land_price_approval_date ? dayjs(formValues.land_price_approval_date) : null,
+          plan_approval_date: formValues.plan_approval_date ? dayjs(formValues.plan_approval_date) : null,
+          compensation_plan_approval_date: formValues.compensation_plan_approval_date ? dayjs(formValues.compensation_plan_approval_date) : null,
+          site_clearance_start_date: formValues.site_clearance_start_date ? dayjs(formValues.site_clearance_start_date) : null,
+        };
+        form.setFieldsValue(formattedValues);
+      }
 
+      if (selectedHouseholds?.length) dispatch(setSelectedHouseholds(selectedHouseholds));
+      if (selectedEmployees?.length) dispatch(setSelectedEmployees(selectedEmployees));
+      if (selectedLandPrices?.length) dispatch(setSelectedLandPrices(selectedLandPrices));
+
+      localStorage.removeItem("tempFormData");
+    } catch (err) {
+      console.error("Error parsing temporary data:", err);
+      localStorage.removeItem("tempFormData");
+    }
+  }, [isModalVisible, form, dispatch]);
   // ================== Open modal ==================
-  const openModal = async (project = null) => {
+  const openModal = (project = null) => {
     form.resetFields();
     setEditingProject(project);
 
     if (!project) {
-      // 👉 Chỉ clear khi tạo mới
+      // 👉 Thêm mới: clear state chọn hộ dân & nhân viên
       dispatch(clearHouseholds());
       dispatch(clearEmployees());
-    }
-
-    await fetchHouseholds();
-    await fetchEmployees();
-
-    if (project) {
+      dispatch(clearLandPrices());
+    } else {
+      // 👉 Sửa: map dữ liệu project vào form
       const formValues = {
         project_code: project.project_code,
         project_name: project.name,
@@ -252,7 +308,7 @@ export default function ProjectPage() {
         project_status: project.project_status,
         project_objectives: project.project_objectives,
         project_scale: project.project_scale,
-        project_location:project.project_location,
+        project_location: project.project_location,
         construction_cost: project.construction_cost,
         project_management_cost: project.project_management_cost,
         consulting_cost: project.consulting_cost,
@@ -269,59 +325,25 @@ export default function ProjectPage() {
 
       form.setFieldsValue(formValues);
 
-      try {
-        const hh = await Promise.all(
-          project.households.map(h =>
-            HouseholdService.getById(h.id, user?.access_token)
-              .then(r => r.data || r)
-              .catch(() => null)
-          )
-        );
-        const emp = await Promise.all(
-          project.employees.map(e =>
-            EmployeeService.getDetailsUser(e.id, user?.access_token)
-              .then(r => r.data || r)
-              .catch(() => null)
-          )
-        );
-
-        dispatch(setSelectedHouseholds(hh.filter(Boolean)));
-        dispatch(setSelectedEmployees(emp.filter(Boolean)));
-      } catch (error) {
-        console.error("Error loading households/employees:", error);
-      }
+      // 👉 Nếu households/employees đã load ở trang khác thì chỉ cần dispatch lại
+      dispatch(setSelectedHouseholds(project.households || []));
+      dispatch(setSelectedEmployees(project.employees || []));
+      dispatch(setSelectedLandPrices(project.lands || []));
     }
 
     setIsModalVisible(true);
   };
 
 
-  // ================== Lưu dữ liệu tạm khi chuyển trang ==================
-  const saveTemporaryData = () => {
-    const formValues = form.getFieldsValue();
-    const tempData = {
-      formValues,
-      selectedHouseholds, // Từ Redux
-      selectedEmployees, // Từ Redux
-      timestamp: Date.now()
-    };
-    localStorage.setItem("tempProjectData", JSON.stringify(tempData));
-  };
-
-  // ================== Add / Update ==================
   // ================== Add / Update ==================
   const handleSubmit = async (values) => {
     try {
 
       setUpdating(true);
-
-      // Validate required fields
       if (!values.project_code || !values.project_name) {
         message.error("Vui lòng nhập đầy đủ thông tin bắt buộc!");
         return;
       }
-
-      // Tạo FormData để gửi files
       const formData = new FormData();
 
       // Thêm các trường text vào FormData
@@ -451,7 +473,7 @@ export default function ProjectPage() {
         project_status: savedProject.project_status,
         project_objectives: savedProject.project_objectives,
         project_scale: savedProject.project_scale,
-        project_location:savedProject.project_location,
+        project_location: savedProject.project_location,
         construction_cost: savedProject.construction_cost,
         project_management_cost: savedProject.project_management_cost,
         consulting_cost: savedProject.consulting_cost,
@@ -503,6 +525,42 @@ export default function ProjectPage() {
     }
   };
 
+  const renderFile = (file) => {
+    if (!file) return "Không có";
+
+    if (Array.isArray(file)) {
+      return file.map((f, idx) => {
+        const url = f.url || f;
+        const fileName = f.name || f.url?.split("/").pop() || `Tệp ${idx + 1}`;
+        return (
+          <div key={idx}>
+            <a href={url} target="_blank" rel="noopener noreferrer">
+              {fileName}
+            </a>
+          </div>
+        );
+      });
+    }
+
+    if (typeof file === "string") {
+      const fileName = file.split("/").pop();
+      return (
+        <a href={file} target="_blank" rel="noopener noreferrer">
+          {fileName}
+        </a>
+      );
+    }
+
+    if (typeof file === "object") {
+      return (
+        <a href={file.url} target="_blank" rel="noopener noreferrer">
+          {file.name || file.url?.split("/").pop()}
+        </a>
+      );
+    }
+
+    return "Không có";
+  };
 
   // ================== Delete ==================
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
@@ -595,45 +653,198 @@ export default function ProjectPage() {
             Đóng
           </Button>,
         ]}
-        width={600}
+        width={1000}
       >
-        {viewProject && (
-          <div>
-            <p><b>Mã dự án:</b> {viewProject.project_code}</p>
-            <p><b>Tên dự án:</b> {viewProject.name}</p>
-            <p><b>Chủ đầu tư:</b> {viewProject.investor}</p>
-            <p>
-              <b>Hộ dân:</b>{" "}
-              <Button
-                type="link"
-                icon={<EyeOutlined />}
-                onClick={() => {
-                  setIsViewModalVisible(false);
-                  localStorage.setItem("reopenModal", JSON.stringify({ type: "view", projectId: viewProject?.id }));
-                  navigate(`/system/admin/households/${viewProject?.id}/view`);
-                }}
-              >
-                Xem
-              </Button>
-            </p>
-            <p>
-              <b>Nhân viên:</b>{" "}
-              <Button
-                type="link"
-                icon={<EyeOutlined />}
-                onClick={() => {
-                  setIsViewModalVisible(false);
-                  localStorage.setItem("reopenModal", JSON.stringify({ type: "view", projectId: viewProject?.id }));
-                  navigate(`/system/admin/employees/${viewProject.id}/view`);
-                }}
-              >
-                Xem
-              </Button>
-            </p>
-          </div>
-        )}
-      </Modal>
+        <Divider orientation="left">Thông tin chung</Divider>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Mã dự án:</b></Col>
+          <Col span={18}>{viewProject?.project_code || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Tên dự án:</b></Col>
+          <Col span={18}>{viewProject?.project_name || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Chủ đầu tư:</b></Col>
+          <Col span={18}>{viewProject?.investor || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Trạng thái:</b></Col>
+          <Col span={18}>{viewProject?.project_status || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Mục tiêu:</b></Col>
+          <Col span={18}>{viewProject?.project_objectives || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Điểm đầu:</b></Col>
+          <Col span={18}>{viewProject?.start_point || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Điểm cuối:</b></Col>
+          <Col span={18}>{viewProject?.end_point || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Vị trí:</b></Col>
+          <Col span={18}>{viewProject?.project_location || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Quy mô:</b></Col>
+          <Col span={18}>{viewProject?.project_scale || "Chưa cập nhật"}</Col>
+        </Row>
 
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Số QĐ duyệt dự án:</b></Col>
+          <Col span={18}>{viewProject?.approval_decision_no || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Ngày QĐ:</b></Col>
+          <Col span={18}>
+            {viewProject?.approval_date ? dayjs(viewProject.approval_date).format("DD/MM/YYYY") : "Chưa cập nhật"}
+          </Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>File QĐ:</b></Col>
+          <Col span={18}>{renderFile(viewProject?.approval_decision_file)}</Col>
+        </Row>
+
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Số bản đồ:</b></Col>
+          <Col span={18}>{viewProject?.map_no || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Ngày duyệt bản đồ:</b></Col>
+          <Col span={18}>
+            {viewProject?.map_approval_date ? dayjs(viewProject.map_approval_date).format("DD/MM/YYYY") : "Chưa cập nhật"}
+          </Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>File bản đồ:</b></Col>
+          <Col span={18}>{renderFile(viewProject?.map_file)}</Col>
+        </Row>
+
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Số QĐ giá đất:</b></Col>
+          <Col span={18}>{viewProject?.land_price_decision_no || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Ngày duyệt giá đất:</b></Col>
+          <Col span={18}>
+            {viewProject?.land_price_approval_date ? dayjs(viewProject.land_price_approval_date).format("DD/MM/YYYY") : "Chưa cập nhật"}
+          </Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>File giá đất:</b></Col>
+          <Col span={18}>{renderFile(viewProject?.land_price_file)}</Col>
+        </Row>
+
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Số QĐ phương án BT:</b></Col>
+          <Col span={18}>{viewProject?.compensation_plan_decision_no || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Ngày duyệt phương án BT:</b></Col>
+          <Col span={18}>
+            {viewProject?.compensation_plan_approval_date ? dayjs(viewProject.compensation_plan_approval_date).format("DD/MM/YYYY") : "Chưa cập nhật"}
+          </Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>File phương án BT:</b></Col>
+          <Col span={18}>{renderFile(viewProject?.compensation_plan_file)}</Col>
+        </Row>
+
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Số phương án BT:</b></Col>
+          <Col span={18}>{viewProject?.compensation_plan_no || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Ngày duyệt kế hoạch:</b></Col>
+          <Col span={18}>
+            {viewProject?.plan_approval_date ? dayjs(viewProject.plan_approval_date).format("DD/MM/YYYY") : "Chưa cập nhật"}
+          </Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>File kế hoạch:</b></Col>
+          <Col span={18}>{renderFile(viewProject?.plan_file)}</Col>
+        </Row>
+
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Tài liệu khác:</b></Col>
+          <Col span={18}>{renderFile(viewProject?.other_documents)}</Col>
+        </Row>
+
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Nguồn vốn:</b></Col>
+          <Col span={18}>{viewProject?.funding_source || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Chi phí tư vấn:</b></Col>
+          <Col span={18}>{viewProject?.consulting_cost ? `${viewProject.consulting_cost} VND` : "0 VND"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Chi phí GPMB:</b></Col>
+          <Col span={18}>{viewProject?.land_clearance_cost ? `${viewProject.land_clearance_cost} VND` : "0 VND"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Chi phí quản lý dự án:</b></Col>
+          <Col span={18}>{viewProject?.project_management_cost ? `${viewProject.project_management_cost} VND` : "0 VND"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Chi phí xây dựng:</b></Col>
+          <Col span={18}>{viewProject?.construction_cost ? `${viewProject.construction_cost} VND` : "0 VND"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Chi phí dự phòng:</b></Col>
+          <Col span={18}>{viewProject?.contingency_cost ? `${viewProject.contingency_cost} VND` : "0 VND"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Chi phí khác:</b></Col>
+          <Col span={18}>{viewProject?.other_costs ? `${viewProject.other_costs} VND` : "0 VND"}</Col>
+        </Row>
+
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Kế hoạch TĐC:</b></Col>
+          <Col span={18}>{viewProject?.resettlement_plan || "Chưa cập nhật"}</Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Ngày bắt đầu GPMB:</b></Col>
+          <Col span={18}>
+            {viewProject?.site_clearance_start_date ? dayjs(viewProject.site_clearance_start_date).format("DD/MM/YYYY") : "Chưa cập nhật"}
+          </Col>
+        </Row>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={6}><b>Tổng chiều dài:</b></Col>
+          <Col span={18}>{viewProject?.total_length ? `${viewProject.total_length}m` : "0m"}</Col>
+        </Row>
+
+        <Divider orientation="left">Hộ dân liên quan</Divider>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={24}>
+            {(viewProject?.households || []).filter(h => h && h !== "undefined" && h.trim() !== "").length > 0
+              ? (viewProject.households || [])
+                .filter(h => h && h !== "undefined" && h.trim() !== "")
+                .map((h, i) => (
+                  <div key={i} style={{ marginBottom: 4 }}>
+                    <span style={{ color: '#1890ff' }}>Hộ dân ID: {h}</span>
+                  </div>
+                ))
+              : <span style={{ color: '#999' }}>Không có hộ dân nào</span>}
+          </Col>
+        </Row>
+
+        <Divider orientation="left">Nhân sự tham gia</Divider>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={24}>
+            {(viewProject?.employees || []).length > 0
+              ? viewProject.employees.map((e, i) => (
+                <div key={i} style={{ marginBottom: 4 }}>
+                  <span style={{ color: '#52c41a' }}>Nhân sự ID: {e}</span>
+                </div>
+              ))
+              : <span style={{ color: '#999' }}>Không có nhân sự nào</span>}
+          </Col>
+        </Row>
+      </Modal>
       {/* Modal xóa */}
       <Modal
         title="Xác nhận xóa"
@@ -645,7 +856,6 @@ export default function ProjectPage() {
       >
         <p>Bạn có chắc chắn muốn xóa dự án {currentProject?.name}?</p>
       </Modal>
-
       {/* Modal thêm sửa dự án */}
       <Modal
         title={editingProject ? "Sửa dự án" : "Thêm dự án"}
@@ -669,7 +879,7 @@ export default function ProjectPage() {
             message.error("Vui lòng kiểm tra lại thông tin đã nhập!");
           }}
         >
-          {/* Header: Thông tin cơ bản + 2 nút */}
+          {/* Header */}
           <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
             <Col>
               <Divider orientation="left" style={{ marginBottom: 0 }}>Thông tin cơ bản</Divider>
@@ -685,9 +895,17 @@ export default function ProjectPage() {
                       type="link"
                       icon={<EditOutlined />}
                       onClick={() => {
-                        saveTemporaryData();
+                        const formData = form.getFieldsValue();
+                        localStorage.setItem("tempFormData", JSON.stringify({
+                          formValues: formData,
+                          selectedHouseholds,
+                          selectedEmployees
+                        }));
                         setIsModalVisible(false);
-                        localStorage.setItem("reopenModal", JSON.stringify({ type: "edit", projectId: editingProject?.id }));
+                        localStorage.setItem("reopenModal", JSON.stringify({
+                          type: "edit",
+                          projectId: editingProject?.id
+                        }));
                         navigate(`/system/admin/households/${editingProject?.id}/edit`);
                       }}
                     >
@@ -698,16 +916,16 @@ export default function ProjectPage() {
                       type="dashed"
                       icon={<PlusOutlined />}
                       onClick={() => {
-                        saveTemporaryData();
+                        const formData = form.getFieldsValue(true);
+                        localStorage.setItem("tempFormData", JSON.stringify({
+                          formValues: formData,
+                          selectedHouseholds,
+                          selectedEmployees
+                        }));
                         setIsModalVisible(false);
                         localStorage.setItem("reopenModal", JSON.stringify({
                           type: "add",
-                          projectId: "new",
-                          restoreData: {
-                            formValues: form.getFieldsValue(),
-                            selectedHouseholds,
-                            selectedEmployees
-                          }
+                          projectId: "new"
                         }));
                         navigate(`/system/admin/households/new/add`);
                       }}
@@ -716,29 +934,12 @@ export default function ProjectPage() {
                     </Button>
                   )}
                 </div>
-
                 <Button type="default" onClick={() => navigate("/duong-dan-trang-2")}>
                   Đơn giá đất
                 </Button>
               </Space>
             </Col>
           </Row>
-
-          {/* Hiển thị danh sách hộ dân đã chọn */}
-          {selectedHouseholds.length > 0 && (
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={4}><label>Hộ dân đã chọn:</label></Col>
-              <Col span={20}>
-                <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid #d9d9d9', padding: 8, borderRadius: 4 }}>
-                  {selectedHouseholds.map((household, index) => (
-                    <div key={household.id || index} style={{ marginBottom: 4 }}>
-                      <span style={{ fontWeight: 500 }}>{household.maHoDan}</span> - {household.hoTenChuSuDung || household.ownerName}
-                    </div>
-                  ))}
-                </div>
-              </Col>
-            </Row>
-          )}
 
           {/* Thông tin cơ bản */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
@@ -776,202 +977,59 @@ export default function ProjectPage() {
             </Col>
           </Row>
 
-          {/* Phê duyệt dự án */}
+          {/* Các phần upload gọn nhờ FormUpload */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
             <Col span={4}><label>Quyết định phê duyệt dự án:</label></Col>
-            <Col span={4}>
-              <Form.Item name="approval_decision_no" style={{ marginBottom: 0 }}>
-                <Input placeholder="Số quyết định" />
-              </Form.Item>
-            </Col>
+            <Col span={4}><Form.Item name="approval_decision_no"><Input /></Form.Item></Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}>
-              <Form.Item name="approval_date" style={{ marginBottom: 0 }}>
-                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
-              </Form.Item>
-            </Col>
+            <Col span={5}><Form.Item name="approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}>
-              <Form.Item
-                name="approval_decision_file"
-                valuePropName="fileList"
-                getValueFromEvent={(e) => {
-                  if (Array.isArray(e)) return e;
-                  return e?.fileList || [];
-                }}
-                style={{ marginBottom: 0 }}
-              >
-                <Upload
-                  listType="text"
-                  beforeUpload={() => false}
-                  maxCount={5}
-                >
-                  <Button icon={<UploadOutlined />}>Upload</Button>
-                </Upload>
-              </Form.Item>
-            </Col>
+            <Col span={6}><FormUpload name="approval_decision_file" maxCount={5} /></Col>
           </Row>
 
-          {/* Bản đồ hiện trạng */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col span={4}><label>Bản đồ hiện trạng vị trí đã được sở duyệt:</label></Col>
-            <Col span={4}>
-              <Form.Item name="map_no" style={{ marginBottom: 0 }}>
-                <Input placeholder="Số bản đồ" />
-              </Form.Item>
-            </Col>
+            <Col span={4}><label>Bản đồ hiện trạng vị trí:</label></Col>
+            <Col span={4}><Form.Item name="map_no"><Input /></Form.Item></Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}>
-              <Form.Item name="map_approval_date" style={{ marginBottom: 0 }}>
-                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
-              </Form.Item>
-            </Col>
+            <Col span={5}><Form.Item name="map_approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}>
-              <Form.Item
-                name="map_file"
-                valuePropName="fileList"
-                getValueFromEvent={(e) => {
-                  if (Array.isArray(e)) return e;
-                  return e?.fileList || [];
-                }}
-                style={{ marginBottom: 0 }}
-              >
-                <Upload
-                  listType="text"
-                  beforeUpload={() => false}
-                  maxCount={5}
-                >
-                  <Button icon={<UploadOutlined />}>Upload</Button>
-                </Upload>
-              </Form.Item>
-            </Col>
+            <Col span={6}><FormUpload name="map_file" maxCount={5} /></Col>
           </Row>
 
-          {/* Quyết định phê duyệt giá đất */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
             <Col span={4}><label>Quyết định phê duyệt giá đất:</label></Col>
-            <Col span={4}>
-              <Form.Item name="land_price_decision_no" style={{ marginBottom: 0 }}>
-                <Input placeholder="Số quyết định" />
-              </Form.Item>
-            </Col>
+            <Col span={4}><Form.Item name="land_price_decision_no"><Input /></Form.Item></Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}>
-              <Form.Item name="land_price_approval_date" style={{ marginBottom: 0 }}>
-                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
-              </Form.Item>
-            </Col>
+            <Col span={5}><Form.Item name="land_price_approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}>
-              <Form.Item
-                name="land_price_file"
-                valuePropName="fileList"
-                getValueFromEvent={(e) => {
-                  if (Array.isArray(e)) return e;
-                  return e?.fileList || [];
-                }}
-                style={{ marginBottom: 0 }}
-              >
-                <Upload
-                  listType="text"
-                  beforeUpload={() => false}
-                  maxCount={5}
-                >
-                  <Button icon={<UploadOutlined />}>Upload</Button>
-                </Upload>
-              </Form.Item>
-            </Col>
+            <Col span={6}><FormUpload name="land_price_file" maxCount={5} /></Col>
           </Row>
 
-          {/* Phương án BT, HT, TĐC */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
             <Col span={4}><label>Phương án BT, HT, TĐC:</label></Col>
-            <Col span={4}>
-              <Form.Item name="compensation_plan_no" style={{ marginBottom: 0 }}>
-                <Input placeholder="Số quyết định" />
-              </Form.Item>
-            </Col>
+            <Col span={4}><Form.Item name="compensation_plan_no"><Input /></Form.Item></Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}>
-              <Form.Item name="plan_approval_date" style={{ marginBottom: 0 }}>
-                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
-              </Form.Item>
-            </Col>
+            <Col span={5}><Form.Item name="plan_approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}>
-              <Form.Item
-                name="plan_file"
-                valuePropName="fileList"
-                getValueFromEvent={(e) => {
-                  if (Array.isArray(e)) return e;
-                  return e?.fileList || [];
-                }}
-                style={{ marginBottom: 0 }}
-              >
-                <Upload
-                  listType="text"
-                  beforeUpload={() => false}
-                  maxCount={5}
-                >
-                  <Button icon={<UploadOutlined />}>Upload</Button>
-                </Upload>
-              </Form.Item>
-            </Col>
+            <Col span={6}><FormUpload name="plan_file" maxCount={5} /></Col>
           </Row>
 
-          {/* Quyết định phê duyệt phương án BT, HT, TĐC */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col span={4}><label>Quyết định phê duyệt phương án BT, HT, TĐC:</label></Col>
-            <Col span={4}>
-              <Form.Item name="compensation_plan_decision_no" style={{ marginBottom: 0 }}>
-                <Input placeholder="Số quyết định" />
-              </Form.Item>
-            </Col>
+            <Col span={4}><label>QĐ phê duyệt phương án BT, HT, TĐC:</label></Col>
+            <Col span={4}><Form.Item name="compensation_plan_decision_no"><Input /></Form.Item></Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}>
-              <Form.Item name="compensation_plan_approval_date" style={{ marginBottom: 0 }}>
-                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
-              </Form.Item>
-            </Col>
+            <Col span={5}><Form.Item name="compensation_plan_approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}>
-              <Form.Item
-                name="compensation_plan_file"
-                valuePropName="fileList"
-                getValueFromEvent={(e) => {
-                  if (Array.isArray(e)) return e;
-                  return e?.fileList || [];
-                }}
-                style={{ marginBottom: 0 }}
-              >
-                <Upload
-                  listType="text"
-                  beforeUpload={() => false}
-                  maxCount={5}
-                >
-                  <Button icon={<UploadOutlined />}>Upload</Button>
-                </Upload>
-              </Form.Item>
-            </Col>
+            <Col span={6}><FormUpload name="compensation_plan_file" maxCount={5} /></Col>
           </Row>
 
-          {/* Thời gian thực hiện, trạng thái */}
+          {/* Thời gian, trạng thái */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
+            <Col span={4}><label>Ngày bắt đầu BTGPMB:</label></Col>
+            <Col span={6}><Form.Item name="site_clearance_start_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
+            <Col span={3}><label>Trạng thái dự án:</label></Col>
             <Col span={4}>
-              <label style={{ display: "block", lineHeight: "32px" }}>Ngày bắt đầu BTGPMB:</label>
-            </Col>
-            <Col span={6}>
-              <Form.Item name="site_clearance_start_date" style={{ marginBottom: 0 }}>
-                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
-              </Form.Item>
-            </Col>
-
-            <Col span={3}>
-              <label style={{ display: "block", lineHeight: "32px" }}>Trạng thái dự án:</label>
-            </Col>
-            <Col span={4}>
-              <Form.Item name="project_status" style={{ marginBottom: 0 }}>
+              <Form.Item name="project_status">
                 <Select placeholder="Chọn trạng thái">
                   <Select.Option value="planned">Planned</Select.Option>
                   <Select.Option value="in_progress">In Progress</Select.Option>
@@ -982,75 +1040,18 @@ export default function ProjectPage() {
             </Col>
           </Row>
 
-          {/* Mục tiêu, Quy mô, Địa điểm */}
-          <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col span={4}><label>Mục tiêu dự án:</label></Col>
-            <Col span={20}>
-              <Form.Item name="project_objectives" style={{ marginBottom: 0 }}>
-                <Input.TextArea rows={1} placeholder="Nhập mục tiêu dự án" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col span={4}><label>Quy mô dự án:</label></Col>
-            <Col span={20}>
-              <Form.Item name="project_scale" style={{ marginBottom: 0 }}>
-                <Input.TextArea rows={1} placeholder="Nhập quy mô dự án" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col span={4}><label>Địa điểm dự án:</label></Col>
-            <Col span={20}>
-              <Form.Item name="project_location" style={{ marginBottom: 0 }}>
-                <Input.TextArea rows={1} placeholder="Nhập địa điểm dự án" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* Nguồn vốn & kế hoạch bố trí */}
-          <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col span={4}><label>Nguồn vốn dự án:</label></Col>
-            <Col span={20}>
-              <Form.Item name="funding_source" style={{ marginBottom: 0 }}>
-                <Input.TextArea rows={1} placeholder="Nhập nguồn vốn dự án" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col span={4}><label>Kế hoạch bố trí TĐC:</label></Col>
-            <Col span={20}>
-              <Form.Item name="resettlement_plan" style={{ marginBottom: 0 }}>
-                <Input.TextArea rows={1} placeholder="Nhập kế hoạch bố trí TĐC" />
-              </Form.Item>
-            </Col>
-          </Row>
-
+          {/* Văn bản khác */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
             <Col span={4}><label>Văn bản đính kèm khác:</label></Col>
-            <Col span={20}>
-              <Form.Item
-                name="other_files"
-                valuePropName="fileList"
-                getValueFromEvent={(e) => {
-                  if (Array.isArray(e)) return e;
-                  return e?.fileList || [];
-                }}
-                style={{ marginBottom: 0 }}
-              >
-                <Upload
-                  listType="text"
-                  beforeUpload={() => false}
-                  maxCount={10}
-                >
-                  <Button icon={<UploadOutlined />}>Upload</Button>
-                </Upload>
-              </Form.Item>
-            </Col>
+            <Col span={20}><FormUpload name="other_files" maxCount={10} /></Col>
           </Row>
+
+          {/* Các trường text */}
+          <Row gutter={16}><Col span={4}><label>Mục tiêu dự án:</label></Col><Col span={20}><Form.Item name="project_objectives"><Input.TextArea rows={1} /></Form.Item></Col></Row>
+          <Row gutter={16}><Col span={4}><label>Quy mô dự án:</label></Col><Col span={20}><Form.Item name="project_scale"><Input.TextArea rows={1} /></Form.Item></Col></Row>
+          <Row gutter={16}><Col span={4}><label>Địa điểm dự án:</label></Col><Col span={20}><Form.Item name="project_location"><Input.TextArea rows={1} /></Form.Item></Col></Row>
+          <Row gutter={16}><Col span={4}><label>Nguồn vốn dự án:</label></Col><Col span={20}><Form.Item name="funding_source"><Input.TextArea rows={1} /></Form.Item></Col></Row>
+          <Row gutter={16}><Col span={4}><label>Kế hoạch bố trí TĐC:</label></Col><Col span={20}><Form.Item name="resettlement_plan"><Input.TextArea rows={1} /></Form.Item></Col></Row>
 
           {/* Nhân viên */}
           <Row gutter={16} style={{ marginBottom: 16 }}>
@@ -1060,38 +1061,29 @@ export default function ProjectPage() {
             <Col span={18}>
               <Button
                 type="link"
-                icon={<EyeOutlined />}
+                icon={<PlusOutlined />}
                 onClick={() => {
-                  saveTemporaryData();
+                  const formData = form.getFieldsValue();
+                  localStorage.setItem("tempFormData", JSON.stringify({
+                    formValues: formData,
+                    selectedHouseholds,
+                    selectedEmployees
+                  }));
                   setIsModalVisible(false);
-                  localStorage.setItem("reopenModal", JSON.stringify({ type: "edit", projectId: editingProject?.id }));
-                  navigate(`/system/admin/employees/${editingProject?.id}/edit`);
+                  localStorage.setItem("reopenModal", JSON.stringify({
+                    type: editingProject ? "edit" : "add",
+                    projectId: editingProject?.id || "new"
+                  }));
+                  navigate(`/system/admin/employees/${editingProject?.id || "new"}/edit`);
                 }}
-                disabled={!editingProject?.id}
               >
-                Xem
+                Thêm nhân viên
               </Button>
             </Col>
           </Row>
 
-          {/* Hiển thị danh sách nhân viên đã chọn */}
-          {selectedEmployees.length > 0 && (
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={4}><label>Nhân viên đã chọn:</label></Col>
-              <Col span={20}>
-                <div style={{ maxHeight: 100, overflowY: 'auto', border: '1px solid #d9d9d9', padding: 8, borderRadius: 4 }}>
-                  {selectedEmployees.map((employee, index) => (
-                    <div key={employee.id || index} style={{ marginBottom: 4 }}>
-                      <span style={{ fontWeight: 500 }}>{employee.name || employee.email}</span> - {employee.position}
-                    </div>
-                  ))}
-                </div>
-              </Col>
-            </Row>
-          )}
-
           {/* Buttons */}
-          <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
             <Col span={24} style={{ textAlign: "right" }}>
               <Button
                 onClick={() => {
@@ -1100,16 +1092,14 @@ export default function ProjectPage() {
                   dispatch(clearHouseholds());
                   dispatch(clearEmployees());
                   form.resetFields();
+                  localStorage.removeItem("tempFormData");
+                  localStorage.removeItem("reopenModal");
                 }}
                 style={{ marginRight: 8 }}
               >
                 Hủy
               </Button>
-              <Button
-                type="primary"
-                loading={updating}
-                htmlType="submit"
-              >
+              <Button type="primary" loading={updating} htmlType="submit">
                 Lưu
               </Button>
             </Col>

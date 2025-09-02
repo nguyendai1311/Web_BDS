@@ -34,7 +34,6 @@ import {
 import { renderFileList } from "../../../utils/fileRender";
 import { parseDayjsToDate, toDayjsOrNull, normalizeDate } from "../../../utils/date";
 
-
 export default function CitizenPage() {
   const [citizens, setCitizens] = useState([]);
   const [filteredCitizens, setFilteredCitizens] = useState([]);
@@ -50,77 +49,80 @@ export default function CitizenPage() {
   const [saving, setSaving] = useState(false);
 
   const [form] = Form.useForm();
-  const [viewForm] = Form.useForm();
   const user = JSON.parse(localStorage.getItem("user"));
 
+  // Hàm fetch data chính
+  const fetchCitizens = async () => {
+    setLoading(true);
+    try {
+      const res = await CitizenService.getAll(user?.access_token);
+      const data = res?.data || [];
 
-  useEffect(() => {
-    const fetchCitizens = async () => {
-      setLoading(true);
-      try {
-        const res = await CitizenService.getAll(user?.access_token);
-        const data = res?.data || [];
+      const list = data.map((cit, index) => ({
+        key: cit.id || index.toString(),
+        id: cit.id, // Thêm id riêng để dễ sử dụng
+        maHoDan: cit.maHoDan || "",
+        hoTenChuSuDung: cit.hoTenChuSuDung || "",
+        soDienThoaiLienLac: cit.soDienThoaiLienLac || "",
+        diaChiThuongTru: cit.diaChiThuongTru || "",
+        diaChiGiaiToa: cit.diaChiGiaiToa || "",
+        soThua: cit.soThua || "",
+        soTo: cit.soTo || "",
+        phuong: cit.phuong || "",
+        quan: cit.quan || "",
+        giaThuoc: cit.giaThuoc || "",
+        thongBaoThuHoiDat: cit.thongBaoThuHoiDat
+          ? {
+            ...cit.thongBaoThuHoiDat,
+            ngay: normalizeDate(cit.thongBaoThuHoiDat.ngay),
+          }
+          : null,
+        quyetDinhPheDuyet: cit.quyetDinhPheDuyet
+          ? {
+            ...cit.quyetDinhPheDuyet,
+            ngay: normalizeDate(cit.quyetDinhPheDuyet.ngay),
+          }
+          : null,
+        phuongAnBTHTTDC: cit.phuongAnBTHTTDC
+          ? {
+            ...cit.phuongAnBTHTTDC,
+            ngay: normalizeDate(cit.phuongAnBTHTTDC.ngay),
+          }
+          : null,
+        nhanTienBoiThuongHoTro: cit.daNhanTienBoiThuong
+          ? {
+            ...cit.daNhanTienBoiThuong,
+            ngay: normalizeDate(cit.daNhanTienBoiThuong.ngay),
+          }
+          : { xacNhan: false, ngay: null, dinhKem: [] },
+        banGiaoMatBang: cit.daBanGiaoMatBang
+          ? {
+            ...cit.daBanGiaoMatBang,
+            ngay: normalizeDate(cit.daBanGiaoMatBang.ngay),
+          }
+          : { xacNhan: false, ngay: null, dinhKem: [] },
+        tongTien: cit.tongSoTienBoiThuongHoTro || "",
+        tongTienBangChu: cit.bangChu || "",
+        createdAt: normalizeDate(cit.createdAt),
+        updatedAt: normalizeDate(cit.updatedAt),
+      }));
 
-        const list = data.map((cit, index) => ({
-          key: cit.id || index.toString(),
-          maHoDan: cit.maHoDan || "",
-          hoTenChuSuDung: cit.hoTenChuSuDung || "",
-          soDienThoaiLienLac: cit.soDienThoaiLienLac || "",
-          diaChiThuongTru: cit.diaChiThuongTru || "",
-          diaChiGiaiToa: cit.diaChiGiaiToa || "",
-          soThua: cit.soThua || "",
-          soTo: cit.soTo || "",
-          phuong: cit.phuong || "",
-          quan: cit.quan || "",
-          giaThuoc: cit.giaThuoc || "",
-          thongBaoThuHoiDat: cit.thongBaoThuHoiDat
-            ? {
-              ...cit.thongBaoThuHoiDat,
-              ngay: normalizeDate(cit.thongBaoThuHoiDat.ngay),
-            }
-            : null,
-          quyetDinhPheDuyet: cit.quyetDinhPheDuyet
-            ? {
-              ...cit.quyetDinhPheDuyet,
-              ngay: normalizeDate(cit.quyetDinhPheDuyet.ngay),
-            }
-            : null,
-          phuongAnBTHTTDC: cit.phuongAnBTHTTDC
-            ? {
-              ...cit.phuongAnBTHTTDC,
-              ngay: normalizeDate(cit.phuongAnBTHTTDC.ngay),
-            }
-            : null,
-          nhanTienBoiThuongHoTro: cit.daNhanTienBoiThuong
-            ? {
-              ...cit.daNhanTienBoiThuong,
-              ngay: normalizeDate(cit.daNhanTienBoiThuong.ngay),
-            }
-            : { xacNhan: false, ngay: null, dinhKem: [] },
-          banGiaoMatBang: cit.daBanGiaoMatBang
-            ? {
-              ...cit.daBanGiaoMatBang,
-              ngay: normalizeDate(cit.daBanGiaoMatBang.ngay),
-            }
-            : { xacNhan: false, ngay: null, dinhKem: [] },
-          tongTien: cit.tongSoTienBoiThuongHoTro || "",
-          tongTienBangChu: cit.bangChu || "",
-          createdAt: normalizeDate(cit.createdAt),
-          updatedAt: normalizeDate(cit.updatedAt),
-        }));
-
-        setCitizens(list);
-        setFilteredCitizens(list);
-      } catch (err) {
-        console.error(err);
-        message.error("Không thể tải danh sách dân cư");
-      }
+      setCitizens(list);
+      setFilteredCitizens(list);
+    } catch (err) {
+      console.error("Error fetching citizens:", err);
+      message.error("Không thể tải danh sách dân cư");
+    } finally {
       setLoading(false);
-    };
+    }
+  };
 
+  // Load data khi component mount
+  useEffect(() => {
     fetchCitizens();
-  }, [user?.access_token]);
+  }, []);
 
+  // Filter theo keyword
   useEffect(() => {
     const keyword = searchKeyword.toLowerCase();
     const results = citizens.filter(
@@ -131,6 +133,23 @@ export default function CitizenPage() {
     );
     setFilteredCitizens(results);
   }, [searchKeyword, citizens]);
+
+  // Hàm convert file list
+  const convertFileList = (files) => {
+    if (!files) return [];
+    if (Array.isArray(files)) {
+      return files.map((url, idx) => ({
+        uid: idx.toString(),
+        name: url.split("/").pop(),
+        url,
+        status: "done",
+      }));
+    } else {
+      return [
+        { uid: "0", name: files.split("/").pop(), url: files, status: "done" },
+      ];
+    }
+  };
 
   const handleDelete = (record) => {
     setEditingCitizen(record);
@@ -146,13 +165,13 @@ export default function CitizenPage() {
     try {
       await CitizenService.remove(editingCitizen.key, user?.access_token);
       message.success(`Đã xóa dân cư: ${editingCitizen.hoTenChuSuDung}`);
-      setCitizens((prev) => prev.filter((c) => c.key !== editingCitizen.key));
-      setFilteredCitizens((prev) =>
-        prev.filter((c) => c.key !== editingCitizen.key)
-      );
+      
+      // Reload data sau khi xóa
+      await fetchCitizens();
       setIsDeleteModalVisible(false);
+      setEditingCitizen(null);
     } catch (err) {
-      console.error(err);
+      console.error("Error deleting citizen:", err);
       message.error(err?.message || "Xóa thất bại!");
     }
   };
@@ -162,16 +181,33 @@ export default function CitizenPage() {
       const values = await form.validateFields();
       setSaving(true);
 
+      // Kiểm tra ID khi update
+      if (editingCitizen && !editingCitizen.id) {
+        message.error("ID citizen không hợp lệ để cập nhật!");
+        return;
+      }
+
       const processFiles = async (fileList, fieldName) => {
-        if (!fileList) return null;
+        if (!fileList || !Array.isArray(fileList)) return null;
         const uploadedFiles = [];
+        
         for (const f of fileList) {
-          if (f.url) uploadedFiles.push(f.url);
-          else if (f.originFileObj) {
-            const formData = new FormData();
-            formData.append(fieldName, f.originFileObj);
-            const res = await uploadFile(formData, user?.access_token);
-            if (res?.files?.[0]?.url) uploadedFiles.push(res.files[0].url);
+          if (f.url) {
+            // File đã tồn tại
+            uploadedFiles.push(f.url);
+          } else if (f.originFileObj) {
+            // File mới cần upload
+            try {
+              const formData = new FormData();
+              formData.append(fieldName, f.originFileObj);
+              const res = await uploadFile(formData, user?.access_token);
+              if (res?.files?.[0]?.url) {
+                uploadedFiles.push(res.files[0].url);
+              }
+            } catch (uploadErr) {
+              console.error("Error uploading file:", uploadErr);
+              message.warning(`Không thể upload file ${f.name}`);
+            }
           }
         }
         return uploadedFiles.length === 1 ? uploadedFiles[0] : uploadedFiles;
@@ -235,88 +271,166 @@ export default function CitizenPage() {
           : { xacNhan: false, ngay: null, dinhKem: [] },
       };
 
-      let payload;
-      if (editingCitizen) {
-        payload = {
-          ...normalizedValues,
-          id: editingCitizen.key,
-          updatedAt: new Date().toISOString(),
-        };
-      } else {
-        payload = normalizedValues;
-      }
-
       let savedCitizen;
       if (editingCitizen) {
+        // Update
+        const payload = {
+          ...normalizedValues,
+          id: editingCitizen.id,
+          updatedAt: new Date().toISOString(),
+        };
+        
+        console.log("Updating citizen with ID:", editingCitizen.id);
         savedCitizen = await CitizenService.update(
-          editingCitizen.key,
+          editingCitizen.id,
           payload,
           user?.access_token
         );
         message.success("Cập nhật dân cư thành công!");
       } else {
+        // Create
         savedCitizen = await CitizenService.create(
-          payload,
+          normalizedValues,
           user?.access_token
         );
         message.success("Thêm dân cư thành công!");
       }
 
-      const citizenItem = {
-        key: savedCitizen.id,
-        ...savedCitizen,
-        thongBaoThuHoiDat: savedCitizen.thongBaoThuHoiDat
-          ? {
-            ...savedCitizen.thongBaoThuHoiDat,
-            ngay: normalizeDate(savedCitizen.thongBaoThuHoiDat.ngay),
-          }
-          : null,
-        quyetDinhPheDuyet: savedCitizen.quyetDinhPheDuyet
-          ? {
-            ...savedCitizen.quyetDinhPheDuyet,
-            ngay: normalizeDate(savedCitizen.quyetDinhPheDuyet.ngay),
-          }
-          : null,
-        phuongAnBTHTTDC: savedCitizen.phuongAnBTHTTDC
-          ? {
-            ...savedCitizen.phuongAnBTHTTDC,
-            ngay: normalizeDate(savedCitizen.phuongAnBTHTTDC.ngay),
-          }
-          : null,
-        nhanTienBoiThuongHoTro: savedCitizen.nhanTienBoiThuongHoTro
-          ? {
-            ...savedCitizen.nhanTienBoiThuongHoTro,
-            ngay: normalizeDate(savedCitizen.nhanTienBoiThuongHoTro.ngay),
-          }
-          : { xacNhan: false, ngay: null, dinhKem: [] },
-        banGiaoMatBang: savedCitizen.banGiaoMatBang
-          ? {
-            ...savedCitizen.banGiaoMatBang,
-            ngay: normalizeDate(savedCitizen.banGiaoMatBang.ngay),
-          }
-          : { xacNhan: false, ngay: null, dinhKem: [] },
-      };
-
-      if (editingCitizen) {
-        setCitizens((prev) =>
-          prev.map((c) => (c.key === citizenItem.key ? citizenItem : c))
-        );
-        setFilteredCitizens((prev) =>
-          prev.map((c) => (c.key === citizenItem.key ? citizenItem : c))
-        );
-      } else {
-        setCitizens((prev) => [...prev, citizenItem]);
-        setFilteredCitizens((prev) => [...prev, citizenItem]);
-      }
-
+      // Reset form và đóng modal
       form.resetFields();
       setEditingCitizen(null);
       setIsAddEditModalVisible(false);
+
+      // Reload data sau khi thêm/sửa
+      await fetchCitizens();
+
     } catch (err) {
-      console.error(err);
+      console.error("Error saving citizen:", err);
       message.error(err?.message || "Lưu thất bại!");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Hàm xem chi tiết
+  const handleViewCitizen = async (record) => {
+    try {
+      setLoading(true);
+      const res = await CitizenService.getById(record.key, user?.access_token);
+      const citizenData = res?.data;
+
+      if (citizenData) {
+        const citizen = {
+          key: citizenData.id,
+          id: citizenData.id,
+          ...citizenData,
+          thongBaoThuHoiDat: citizenData.thongBaoThuHoiDat
+            ? {
+              ...citizenData.thongBaoThuHoiDat,
+              ngay: normalizeDate(citizenData.thongBaoThuHoiDat.ngay),
+            }
+            : null,
+          quyetDinhPheDuyet: citizenData.quyetDinhPheDuyet
+            ? {
+              ...citizenData.quyetDinhPheDuyet,
+              ngay: normalizeDate(citizenData.quyetDinhPheDuyet.ngay),
+            }
+            : null,
+          phuongAnBTHTTDC: citizenData.phuongAnBTHTTDC
+            ? {
+              ...citizenData.phuongAnBTHTTDC,
+              ngay: normalizeDate(citizenData.phuongAnBTHTTDC.ngay),
+            }
+            : null,
+          nhanTienBoiThuongHoTro: citizenData.nhanTienBoiThuongHoTro
+            ? {
+              ...citizenData.nhanTienBoiThuongHoTro,
+              ngay: normalizeDate(citizenData.nhanTienBoiThuongHoTro.ngay),
+            }
+            : { xacNhan: false, ngay: null, dinhKem: [] },
+          banGiaoMatBang: citizenData.banGiaoMatBang
+            ? {
+              ...citizenData.banGiaoMatBang,
+              ngay: normalizeDate(citizenData.banGiaoMatBang.ngay),
+            }
+            : { xacNhan: false, ngay: null, dinhKem: [] },
+        };
+
+        setViewingCitizen(citizen);
+        setIsViewModalVisible(true);
+      }
+    } catch (err) {
+      console.error("Error loading citizen details:", err);
+      message.error("Không thể tải dữ liệu chi tiết");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Hàm edit citizen
+  const handleEditCitizen = async (record) => {
+    try {
+      setLoading(true);
+      const res = await CitizenService.getById(record.key, user?.access_token);
+      const citizenData = res?.data;
+
+      if (citizenData) {
+        const converted = {
+          ...citizenData,
+          thongBaoThuHoiDat: citizenData.thongBaoThuHoiDat
+            ? {
+              ...citizenData.thongBaoThuHoiDat,
+              ngay: toDayjsOrNull(citizenData.thongBaoThuHoiDat.ngay),
+              dinhKem: convertFileList(citizenData.thongBaoThuHoiDat.dinhKem),
+            }
+            : null,
+          quyetDinhPheDuyet: citizenData.quyetDinhPheDuyet
+            ? {
+              ...citizenData.quyetDinhPheDuyet,
+              ngay: toDayjsOrNull(citizenData.quyetDinhPheDuyet.ngay),
+              dinhKem: convertFileList(citizenData.quyetDinhPheDuyet.dinhKem),
+            }
+            : null,
+          phuongAnBTHTTDC: citizenData.phuongAnBTHTTDC
+            ? {
+              ...citizenData.phuongAnBTHTTDC,
+              ngay: toDayjsOrNull(citizenData.phuongAnBTHTTDC.ngay),
+              dinhKem: convertFileList(citizenData.phuongAnBTHTTDC.dinhKem),
+            }
+            : null,
+          nhanTienBoiThuongHoTro: citizenData.nhanTienBoiThuongHoTro
+            ? {
+              xacNhan: citizenData.nhanTienBoiThuongHoTro.xacNhan || false,
+              ngay: toDayjsOrNull(citizenData.nhanTienBoiThuongHoTro.ngay),
+              dinhKem: convertFileList(citizenData.nhanTienBoiThuongHoTro.dinhKem),
+            }
+            : { xacNhan: false, ngay: null, dinhKem: [] },
+          banGiaoMatBang: citizenData.banGiaoMatBang
+            ? {
+              xacNhan: citizenData.banGiaoMatBang.xacNhan || false,
+              ngay: toDayjsOrNull(citizenData.banGiaoMatBang.ngay),
+              dinhKem: convertFileList(citizenData.banGiaoMatBang.dinhKem),
+            }
+            : { xacNhan: false, ngay: null, dinhKem: [] },
+          tongTien: citizenData.tongTien ? Number(citizenData.tongTien) : undefined,
+          tongTienBangChu: citizenData.tongTienBangChu || "",
+        };
+
+        // Set citizen với đầy đủ thông tin bao gồm id
+        setEditingCitizen({
+          ...citizenData,
+          key: citizenData.id,
+          id: citizenData.id
+        });
+        
+        form.setFieldsValue(converted);
+        setIsAddEditModalVisible(true);
+      }
+    } catch (err) {
+      console.error("Error loading citizen for edit:", err);
+      message.error("Không thể tải dữ liệu để sửa");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -328,177 +442,33 @@ export default function CitizenPage() {
     {
       title: "Hành động",
       key: "action",
-      render: (_, record) => {
-        const convertFileList = (files) => {
-          if (!files) return [];
-          if (Array.isArray(files)) {
-            return files.map((url, idx) => ({
-              uid: idx,
-              name: url.split("/").pop(),
-              url,
-              status: "done",
-            }));
-          } else {
-            return [
-              { uid: 0, name: files.split("/").pop(), url: files, status: "done" },
-            ];
-          }
-        };
+      render: (_, record) => (
+        <CenteredAction>
+          <Tooltip title="Xem chi tiết">
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewCitizen(record)}
+            />
+          </Tooltip>
 
-        return (
-          <CenteredAction>
-            <Tooltip title="Xem chi tiết">
-              <Button
-                type="link"
-                icon={<EyeOutlined />}
-                onClick={async () => {
-                  try {
-                    setLoading(true);
-                    const res = await CitizenService.getById(record.key, user?.access_token);
-                    console.log("c", res?.data);
+          <Tooltip title="Sửa">
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => handleEditCitizen(record)}
+            />
+          </Tooltip>
 
-                    const citizenData = res?.data;
-                    if (citizenData) {
-                      const citizen = {
-                        key: citizenData.id,
-                        ...citizenData,
-                        thongBaoThuHoiDat: citizenData.thongBaoThuHoiDat
-                          ? {
-                            ...citizenData.thongBaoThuHoiDat,
-                            ngay: normalizeDate(citizenData.thongBaoThuHoiDat.ngay),
-                          }
-                          : null,
-                        quyetDinhPheDuyet: citizenData.quyetDinhPheDuyet
-                          ? {
-                            ...citizenData.quyetDinhPheDuyet,
-                            ngay: normalizeDate(citizenData.quyetDinhPheDuyet.ngay),
-                          }
-                          : null,
-                        phuongAnBTHTTDC: citizenData.phuongAnBTHTTDC
-                          ? {
-                            ...citizenData.phuongAnBTHTTDC,
-                            ngay: normalizeDate(citizenData.phuongAnBTHTTDC.ngay),
-                          }
-                          : null,
-                        nhanTienBoiThuongHoTro: citizenData.nhanTienBoiThuongHoTro
-                          ? {
-                            ...citizenData.nhanTienBoiThuongHoTro,
-                            ngay: normalizeDate(citizenData.nhanTienBoiThuongHoTro.ngay),
-                          }
-                          : { xacNhan: false, ngay: null, dinhKem: [] },
-                        banGiaoMatBang: citizenData.banGiaoMatBang
-                          ? {
-                            ...citizenData.banGiaoMatBang,
-                            ngay: normalizeDate(citizenData.banGiaoMatBang.ngay),
-                          }
-                          : { xacNhan: false, ngay: null, dinhKem: [] },
-                      };
-
-                      setViewingCitizen(citizen);
-                      setIsViewModalVisible(true);
-                    }
-                  } catch (err) {
-                    console.error(err);
-                    message.error("Không thể tải dữ liệu chi tiết");
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-              />
-            </Tooltip>
-
-            <Tooltip title="Sửa">
-              <Button
-                type="link"
-                icon={<EditOutlined />}
-                onClick={async () => {
-                  try {
-                    setLoading(true);
-                    const res = await CitizenService.getById(record.key, user?.access_token);
-                    const citizenData = res?.data;
-
-                    const convertFileList = (files) => {
-                      if (!files) return [];
-                      if (Array.isArray(files)) {
-                        return files.map((url, idx) => ({
-                          uid: idx,
-                          name: url.split("/").pop(),
-                          url,
-                          status: "done",
-                        }));
-                      } else {
-                        return [
-                          { uid: 0, name: files.split("/").pop(), url: files, status: "done" },
-                        ];
-                      }
-                    };
-
-                    if (citizenData) {
-                      const converted = {
-                        ...citizenData,
-                        thongBaoThuHoiDat: citizenData.thongBaoThuHoiDat
-                          ? {
-                            ...citizenData.thongBaoThuHoiDat,
-                            ngay: toDayjsOrNull(citizenData.thongBaoThuHoiDat.ngay),
-                            dinhKem: convertFileList(citizenData.thongBaoThuHoiDat.dinhKem),
-                          }
-                          : null,
-                        quyetDinhPheDuyet: citizenData.quyetDinhPheDuyet
-                          ? {
-                            ...citizenData.quyetDinhPheDuyet,
-                            ngay: toDayjsOrNull(citizenData.quyetDinhPheDuyet.ngay),
-                            dinhKem: convertFileList(citizenData.quyetDinhPheDuyet.dinhKem),
-                          }
-                          : null,
-                        phuongAnBTHTTDC: citizenData.phuongAnBTHTTDC
-                          ? {
-                            ...citizenData.phuongAnBTHTTDC,
-                            ngay: toDayjsOrNull(citizenData.phuongAnBTHTTDC.ngay),
-                            dinhKem: convertFileList(citizenData.phuongAnBTHTTDC.dinhKem),
-                          }
-                          : null,
-                        nhanTienBoiThuongHoTro: citizenData.nhanTienBoiThuongHoTro
-                          ? {
-                            xacNhan: citizenData.nhanTienBoiThuongHoTro.xacNhan || false,
-                            ngay: toDayjsOrNull(citizenData.nhanTienBoiThuongHoTro.ngay),
-                            dinhKem: convertFileList(citizenData.nhanTienBoiThuongHoTro.dinhKem),
-                          }
-                          : { xacNhan: false, ngay: null, dinhKem: [] },
-                        banGiaoMatBang: citizenData.banGiaoMatBang
-                          ? {
-                            xacNhan: citizenData.banGiaoMatBang.xacNhan || false,
-                            ngay: toDayjsOrNull(citizenData.banGiaoMatBang.ngay),
-                            dinhKem: convertFileList(citizenData.banGiaoMatBang.dinhKem),
-                          }
-                          : { xacNhan: false, ngay: null, dinhKem: [] },
-                        tongTien: citizenData.tongTien ? Number(citizenData.tongTien) : undefined,
-                        tongTienBangChu: citizenData.tongTienBangChu || "",
-                      };
-
-                      setEditingCitizen(citizenData);
-                      form.setFieldsValue(converted);
-                      setIsAddEditModalVisible(true);
-                    }
-                  } catch (err) {
-                    console.error(err);
-                    message.error("Không thể tải dữ liệu để sửa");
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-              />
-            </Tooltip>
-
-            <Tooltip title="Xóa">
-              <Button
-                type="link"
-                icon={<DeleteOutlined />}
-                onClick={() => handleDelete(record)}
-              />
-            </Tooltip>
-          </CenteredAction>
-        );
-      },
+          <Tooltip title="Xóa">
+            <Button
+              type="link"
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record)}
+            />
+          </Tooltip>
+        </CenteredAction>
+      ),
     },
   ];
 
@@ -507,6 +477,7 @@ export default function CitizenPage() {
       <PageHeader>
         <h2>Quản lý dân cư</h2>
       </PageHeader>
+      
       <FilterContainer
         style={{
           display: "flex",
@@ -516,7 +487,7 @@ export default function CitizenPage() {
         }}
       >
         <Input
-          placeholder="Tìm theo tên, số biên nhận, SĐT"
+          placeholder="Tìm theo tên, mã hộ dân, SĐT"
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
           style={{ width: 300, height: 40 }}
@@ -541,8 +512,9 @@ export default function CitizenPage() {
         <Table
           columns={columns}
           dataSource={filteredCitizens}
-          pagination={{ pageSize: 5 }}
+          pagination={{ pageSize: 10 }}
           bordered
+          rowKey="key"
         />
       </Spin>
 
@@ -551,11 +523,15 @@ export default function CitizenPage() {
         title="Xác nhận xóa"
         open={isDeleteModalVisible}
         onOk={handleConfirmDelete}
-        onCancel={() => setIsDeleteModalVisible(false)}
+        onCancel={() => {
+          setIsDeleteModalVisible(false);
+          setEditingCitizen(null);
+        }}
         okText="Xóa"
         cancelText="Hủy"
+        okButtonProps={{ danger: true }}
       >
-        <p>Bạn có chắc chắn muốn xóa {editingCitizen?.fullName}?</p>
+        <p>Bạn có chắc chắn muốn xóa hộ dân <strong>{editingCitizen?.hoTenChuSuDung}</strong>?</p>
       </Modal>
 
       {/* Modal thêm/sửa */}
@@ -572,6 +548,7 @@ export default function CitizenPage() {
         cancelText="Hủy"
         confirmLoading={saving}
         width={1400}
+        destroyOnClose
       >
         <Form form={form} layout="horizontal" labelCol={{ span: 6 }} wrapperCol={{ span: 18 }}>
           <Divider orientation="left">Thông tin hộ dân</Divider>
@@ -645,7 +622,11 @@ export default function CitizenPage() {
                   getValueFromEvent={(e) => e?.fileList || []}
                   style={{ marginBottom: 0 }}
                 >
-                  <Upload listType="text">
+                  <Upload 
+                    listType="text"
+                    beforeUpload={() => false} // Prevent auto upload
+                    multiple
+                  >
                     <Button icon={<UploadOutlined />}>Upload</Button>
                   </Upload>
                 </Form.Item>
@@ -681,8 +662,18 @@ export default function CitizenPage() {
       <Modal
         title="Chi tiết dân cư"
         open={isViewModalVisible}
-        onCancel={() => setIsViewModalVisible(false)}
-        footer={null}
+        onCancel={() => {
+          setIsViewModalVisible(false);
+          setViewingCitizen(null);
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setIsViewModalVisible(false);
+            setViewingCitizen(null);
+          }}>
+            Đóng
+          </Button>
+        ]}
         width={1200}
       >
         {viewingCitizen && (
@@ -701,7 +692,7 @@ export default function CitizenPage() {
                   <label style={{ fontWeight: 500 }}>{field.label}:</label>
                 </Col>
                 <Col span={20}>
-                  <span>{field.value}</span>
+                  <span>{field.value || "Chưa có thông tin"}</span>
                 </Col>
               </Row>
             ))}
@@ -710,23 +701,23 @@ export default function CitizenPage() {
             <Divider orientation="left">Thông tin đất đai</Divider>
             <Row style={{ marginBottom: 12 }} align="middle">
               <Col span={4}><label style={{ fontWeight: 500 }}>Số thửa, tờ theo BĐĐC 2002:</label></Col>
-              <Col span={4}><span><b>Số thửa:</b> {viewingCitizen.soThua}</span></Col>
-              <Col span={4}><span><b>Số tờ:</b> {viewingCitizen.soTo}</span></Col>
-              <Col span={6}><span><b>Phường:</b> {viewingCitizen.phuong}</span></Col>
-              <Col span={6}><span><b>Quận:</b> {viewingCitizen.quan}</span></Col>
+              <Col span={4}><span><b>Số thửa:</b> {viewingCitizen.soThua || "N/A"}</span></Col>
+              <Col span={4}><span><b>Số tờ:</b> {viewingCitizen.soTo || "N/A"}</span></Col>
+              <Col span={6}><span><b>Phường:</b> {viewingCitizen.phuong || "N/A"}</span></Col>
+              <Col span={6}><span><b>Quận:</b> {viewingCitizen.quan || "N/A"}</span></Col>
             </Row>
             <Row style={{ marginBottom: 12 }}>
               <Col span={4}><label style={{ fontWeight: 500 }}>Giá thuộc:</label></Col>
-              <Col span={20}><span>{viewingCitizen.giaThuoc}</span></Col>
+              <Col span={20}><span>{viewingCitizen.giaThuoc || "Chưa có thông tin"}</span></Col>
             </Row>
 
             {/* --- Thông báo thu hồi đất --- */}
             <Divider orientation="left">Thông báo thu hồi đất</Divider>
             <Row gutter={16} style={{ marginBottom: 12 }}>
               <Col span={4}><label style={{ fontWeight: 500 }}>Thông báo thu hồi đất:</label></Col>
-              <Col span={4}><span><b>Số:</b> {viewingCitizen?.thongBaoThuHoiDat?.so}</span></Col>
+              <Col span={4}><span><b>Số:</b> {viewingCitizen?.thongBaoThuHoiDat?.so || "N/A"}</span></Col>
               <Col span={8}>
-                <span><b>Ngày:</b> {viewingCitizen?.thongBaoThuHoiDat?.ngay}</span>
+                <span><b>Ngày:</b> {viewingCitizen?.thongBaoThuHoiDat?.ngay || "N/A"}</span>
               </Col>
               <Col span={8}>
                 {viewingCitizen?.thongBaoThuHoiDat?.dinhKem && (
@@ -739,9 +730,9 @@ export default function CitizenPage() {
             <Divider orientation="left">Quyết định phê duyệt</Divider>
             <Row gutter={16} style={{ marginBottom: 12 }}>
               <Col span={4}><label style={{ fontWeight: 500 }}>Quyết định phê duyệt:</label></Col>
-              <Col span={4}><span><b>Số:</b> {viewingCitizen?.quyetDinhPheDuyet?.so}</span></Col>
+              <Col span={4}><span><b>Số:</b> {viewingCitizen?.quyetDinhPheDuyet?.so || "N/A"}</span></Col>
               <Col span={8}>
-                <span><b>Ngày:</b> {viewingCitizen?.quyetDinhPheDuyet?.ngay}</span>
+                <span><b>Ngày:</b> {viewingCitizen?.quyetDinhPheDuyet?.ngay || "N/A"}</span>
               </Col>
               <Col span={8}>
                 {viewingCitizen?.quyetDinhPheDuyet?.dinhKem && (
@@ -754,9 +745,9 @@ export default function CitizenPage() {
             <Divider orientation="left">Phương án BT, HT, TĐC</Divider>
             <Row gutter={16} style={{ marginBottom: 12 }}>
               <Col span={4}><label style={{ fontWeight: 500 }}>Phương án BT, HT, TĐC:</label></Col>
-              <Col span={4}><span><b>Số:</b> {viewingCitizen?.phuongAnBTHTTDC?.so}</span></Col>
+              <Col span={4}><span><b>Số:</b> {viewingCitizen?.phuongAnBTHTTDC?.so || "N/A"}</span></Col>
               <Col span={8}>
-                <span><b>Ngày:</b> {viewingCitizen?.phuongAnBTHTTDC?.ngay}</span>
+                <span><b>Ngày:</b> {viewingCitizen?.phuongAnBTHTTDC?.ngay || "N/A"}</span>
               </Col>
               <Col span={8}>
                 {viewingCitizen?.phuongAnBTHTTDC?.dinhKem && (
@@ -773,10 +764,10 @@ export default function CitizenPage() {
                   <Col span={4}><label style={{ fontWeight: 500 }}>Tổng số tiền:</label></Col>
                   <Col span={10}>
                     <span>
-                      {viewingCitizen.tongTien ? `${viewingCitizen.tongTien}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " đồng" : ""}
+                      {viewingCitizen.tongTien ? `${viewingCitizen.tongTien}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " đồng" : "0 đồng"}
                     </span>
                   </Col>
-                  <Col span={10}><span><b>Bằng chữ:</b> {viewingCitizen.tongTienBangChu}</span></Col>
+                  <Col span={10}><span><b>Bằng chữ:</b> {viewingCitizen.tongTienBangChu || "Chưa có"}</span></Col>
                 </Row>
               </>
             )}
@@ -809,7 +800,6 @@ export default function CitizenPage() {
           </div>
         )}
       </Modal>
-
-    </div >
+    </div>
   );
 }
