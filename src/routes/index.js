@@ -11,7 +11,7 @@ import HouseHoldSelectPage from "../pages/Admin/HouseHoldSelectPage/HouseHoldSel
 import ProjectPage from "../pages/Admin/ProjectPage/ProjectPage";
 import EmployeeSelectPage from "../pages/Admin/EmployeeSelectPage/EmployeeSelectPage";
 import LandPricePage from "../pages/Admin/LandPricePage/LandPricePage";
-import LandPriceDetailPage from "../pages/Admin/LandPriceSelectPage/LandPriceSelectPage";
+import LandPriceSelectPage from "../pages/Admin/LandPriceSelectPage/LandPriceSelectPage";
 
 export const routes = [
   {
@@ -38,9 +38,9 @@ export const routes = [
       { path: "assess", page: AssessPage },
       { path: "report", page: ReportPage },
       { path: "project", page: ProjectPage },
-      { path: "employees/:id/:mode", page: EmployeeSelectPage },   
+      { path: "employees/:id/:mode", page: EmployeeSelectPage },
       { path: "households/:id/:mode", page: HouseHoldSelectPage },
-      { path: "lands/:id/:mode", page: LandPriceDetailPage },
+      { path: "lands/:id/:mode", page: LandPriceSelectPage },
       { path: "lands", page: LandPricePage },
     ],
   },

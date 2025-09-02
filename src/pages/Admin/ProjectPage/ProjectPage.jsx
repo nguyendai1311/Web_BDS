@@ -763,32 +763,48 @@ export default function ProjectPage() {
           <Col span={6}><b>Tổng chiều dài:</b></Col>
           <Col span={18}>{viewProject?.total_length ? `${viewProject.total_length}m` : "0m"}</Col>
         </Row>
-
+        {/* Hộ dân */}
         <Divider orientation="left">Hộ dân liên quan</Divider>
         <Row gutter={16} style={{ marginBottom: 8 }}>
           <Col span={24}>
-            {(viewProject?.households || []).filter(h => h && h !== "undefined" && h.trim() !== "").length > 0
-              ? (viewProject.households || [])
-                .filter(h => h && h !== "undefined" && h.trim() !== "")
-                .map((h, i) => (
-                  <div key={i} style={{ marginBottom: 4 }}>
-                    <span style={{ color: '#1890ff' }}>Hộ dân ID: {h}</span>
-                  </div>
-                ))
-              : <span style={{ color: '#999' }}>Không có hộ dân nào</span>}
+            {viewProject?.id && (
+              <Button
+                type="primary"
+                onClick={() => navigate(`/system/admin/households/${viewProject.id}/view`)}
+              >
+                Xem tất cả hộ dân
+              </Button>
+            )}
           </Col>
         </Row>
 
+        {/* Nhân sự */}
         <Divider orientation="left">Nhân sự tham gia</Divider>
         <Row gutter={16} style={{ marginBottom: 8 }}>
           <Col span={24}>
-            {(viewProject?.employees || []).length > 0
-              ? viewProject.employees.map((e, i) => (
-                <div key={i} style={{ marginBottom: 4 }}>
-                  <span style={{ color: '#52c41a' }}>Nhân sự ID: {e}</span>
-                </div>
-              ))
-              : <span style={{ color: '#999' }}>Không có nhân sự nào</span>}
+            {viewProject?.id && (
+              <Button
+                type="primary"
+                onClick={() => navigate(`/system/admin/employees/${viewProject.id}/view`)}
+              >
+                Xem tất cả nhân sự
+              </Button>
+            )}
+          </Col>
+        </Row>
+
+        {/* Bảng giá đất */}
+        <Divider orientation="left">Bảng giá đất liên quan</Divider>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={24}>
+            {viewProject?.id && (
+              <Button
+                type="primary"
+                onClick={() => navigate(`/system/admin/lands/${viewProject.id}/view`)}
+              >
+                Xem tất cả bảng giá đất
+              </Button>
+            )}
           </Col>
         </Row>
       </Modal>
@@ -1256,6 +1272,6 @@ export default function ProjectPage() {
           </Row>
         </Form>
       </Modal>
-    </div>
+    </div >
   );
 }

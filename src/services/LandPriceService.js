@@ -39,22 +39,22 @@ export async function remove(id, token) {
   return res.data;
 }
 
-export const getLandByProjectId = async (ids, token) => {
-  if (!Array.isArray(ids) || ids.length === 0) {
-    throw new Error("ids phải là mảng và không rỗng");
-  }
+export async function getLandByProjectId(projectId, page = 1, limit = 20, search = "", token) {
   try {
-    const response = await axios.post(`${API_URL}/get-by-ids`, { ids },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    return response.data;
+    const res = await axios.get(`${API_URL}/get-by-ids`, {
+      params: {
+      projectId,
+      page,
+      limit,
+      search,
+    },
+    headers: token
+      ? { Authorization: `Bearer ${token}` }
+      : {},
+  });
+    return res.data;
   } catch (error) {
-    console.error("Lỗi khi gọi API getHouseHoldsByIds:", error);
+    console.error("Lỗi khi gọi API getLandByProjectId:", error);
     throw error;
   }
-};
+}

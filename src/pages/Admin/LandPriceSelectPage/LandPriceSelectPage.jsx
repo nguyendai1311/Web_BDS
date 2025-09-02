@@ -94,7 +94,11 @@ export default function LandPriceDetailPage() {
       }
 
       if (mode === "view" && id) {
-        const res = await LandPriceService.getLandByProjectId(id, page, pageSize, user?.access_token);
+        const res = await LandPriceService.getLandByProjectId(id,
+          page,
+          pageSize,
+          "",
+          user?.access_token);
         if (res?.success) {
           setLandPrices(res.data || []);
           setPagination({ total: res.total, page: res.page, pageSize: res.limit });
