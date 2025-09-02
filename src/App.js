@@ -2,7 +2,7 @@ import React, { Fragment, useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { routes } from "./routes";
 import { isJsonString } from "./utils";
-import { jwtDecode } from "jwt-decode";
+import {jwtDecode} from "jwt-decode";
 import * as UserService from "./services/UserService";
 import { useDispatch, useSelector } from "react-redux";
 import { resetUser, updateUser } from "./redux/slices/userSlice";
@@ -96,29 +96,27 @@ function App() {
     };
   }, [dispatch, user?.access_token]);
 
+  // Component redirect theo role
+  const RoleRedirect = () => {
+  if (!user?.access_token) return <Navigate to="/sign-in" replace />;
+  if (user.roles && user.roles.includes("admin")) return <Navigate to="/system/admin" replace />;
+  return <Navigate to="/sign-in" replace />; // employee hoặc user bình thường
+};
+
+
   return (
     <div style={{ height: "100vh", width: "100%" }}>
       <Loading isLoading={isLoading}>
         <Router>
           <Routes>
-            {/* Route gốc: nếu đã login → chuyển sang dashboard, nếu chưa → sign-in */}
-            <Route
-              path="/"
-              element={
-                user?.access_token
-                  ? user.role === "admin"
-                    ? <Navigate to="/system/admin" replace />
-                    : <Navigate to="/system/employee" replace />
-                  : <Navigate to="/sign-in" replace />
-              }
-            />
+            {/* Route gốc: redirect theo role */}
+            <Route path="/" element={<RoleRedirect />} />
 
             <Route path="/sign-in" element={<SignInPage />} />
 
             {routes.map((route) => {
               if (route.children) {
                 const Layout = route.layout;
-
                 if (route.isPrivated) {
                   return (
                     <Route
