@@ -242,9 +242,9 @@ export default function ProjectPage() {
 
     form.setFieldsValue(formValues);
 
-    dispatch(setSelectedHouseholds(editingProject.households || []));
-    dispatch(setSelectedEmployees(editingProject.employees || []));
-    dispatch(setSelectedLandPrices(editingProject.lands || []));
+    dispatch(setSelectedHouseholds((editingProject.households || []).map(id => ({ id }))));
+    dispatch(setSelectedEmployees((editingProject.employees || []).map(id => ({ id }))));
+    dispatch(setSelectedLandPrices((editingProject.lands || []).map(id => ({ id }))));
   }, [editingProject, form, dispatch]);
 
   // ================== Restore tempFormData khi mở modal ==================
@@ -472,42 +472,37 @@ export default function ProjectPage() {
   };
 
 
-  const renderFile = (file) => {
-    if (!file) return "Không có";
+const renderFile = (files) => {
+  if (!files) return "Chưa có file";
 
-    if (Array.isArray(file)) {
-      return file.map((f, idx) => {
-        const url = f.url || f;
-        const fileName = f.name || f.url?.split("/").pop() || `Tệp ${idx + 1}`;
-        return (
-          <div key={idx}>
-            <a href={url} target="_blank" rel="noopener noreferrer">
-              {fileName}
-            </a>
-          </div>
-        );
-      });
-    }
+  // Nếu BE trả về string (1 file)
+  if (typeof files === "string") {
+    const fileName = decodeURIComponent(files.split("/").pop().split("?")[0]);
+    return (
+      <a href={files} target="_blank" rel="noopener noreferrer">
+        {fileName}
+      </a>
+    );
+  }
 
-    if (typeof file === "string") {
-      const fileName = file.split("/").pop();
+  // Nếu BE trả về array
+  if (Array.isArray(files) && files.length > 0) {
+    return files.map((fileUrl, index) => {
+      const fileName = decodeURIComponent(fileUrl.split("/").pop().split("?")[0]);
       return (
-        <a href={file} target="_blank" rel="noopener noreferrer">
-          {fileName}
-        </a>
+        <div key={index}>
+          <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+            {fileName}
+          </a>
+        </div>
       );
-    }
+    });
+  }
 
-    if (typeof file === "object") {
-      return (
-        <a href={file.url} target="_blank" rel="noopener noreferrer">
-          {file.name || file.url?.split("/").pop()}
-        </a>
-      );
-    }
+  return "Chưa có file";
+};
 
-    return "Không có";
-  };
+
 
   // ================== Delete ==================
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
