@@ -248,39 +248,56 @@ export default function ProjectPage() {
   }, [editingProject, form, dispatch]);
 
   // ================== Restore tempFormData khi mở modal ==================
-  useEffect(() => {
-    if (!isModalVisible) return;
-    const tempData = localStorage.getItem("tempFormData");
-    if (!tempData) return;
+ useEffect(() => {
+    if (!editingProject) return;
+    const formValues = {
+      project_code: editingProject.project_code,
+      project_name: editingProject.name,
+      investor: editingProject.investor,
+      approval_decision_no: editingProject.approval_decision_no,
+      approval_date: editingProject.approval_date ? dayjs(editingProject.approval_date) : null,
+      map_no: editingProject.map_no,
+      map_approval_date: editingProject.map_approval_date ? dayjs(editingProject.map_approval_date) : null,
+      land_price_decision_no: editingProject.land_price_decision_no,
+      land_price_approval_date: editingProject.land_price_approval_date ? dayjs(editingProject.land_price_approval_date) : null,
+      compensation_plan_decision_no: editingProject.compensation_plan_decision_no,
+      compensation_plan_approval_date: editingProject.compensation_plan_approval_date ? dayjs(editingProject.compensation_plan_approval_date) : null,
+      compensation_plan_no: editingProject.compensation_plan_no,
+      plan_approval_date: editingProject.plan_approval_date ? dayjs(editingProject.plan_approval_date) : null,
+      site_clearance_start_date: editingProject.site_clearance_start_date ? dayjs(editingProject.site_clearance_start_date) : null,
+      project_status: editingProject.project_status,
+      project_objectives: editingProject.project_objectives,
+      project_scale: editingProject.project_scale,
+      project_location: editingProject.project_location,
+      construction_cost: editingProject.construction_cost,
+      project_management_cost: editingProject.project_management_cost,
+      consulting_cost: editingProject.consulting_cost,
+      other_costs: editingProject.other_costs,
+      contingency_cost: editingProject.contingency_cost,
+      land_clearance_cost: editingProject.land_clearance_cost,
+      start_point: editingProject.start_point,
+      end_point: editingProject.end_point,
+      total_length: editingProject.total_length,
+      funding_source: editingProject.funding_source,
+      resettlement_plan: editingProject.resettlement_plan,
+      other_documents: editingProject.other_documents,
+      // Sử dụng hàm convertDbFilesToUploadFormat thay vì convertFileList
+      approval_decision_file: convertDbFilesToUploadFormat(editingProject.approval_decision_file),
+      map_file: convertDbFilesToUploadFormat(editingProject.map_file),
+      land_price_file: convertDbFilesToUploadFormat(editingProject.land_price_file),
+      plan_file: convertDbFilesToUploadFormat(editingProject.plan_file),
+      compensation_plan_file: convertDbFilesToUploadFormat(editingProject.compensation_plan_file),
+      other_files: convertDbFilesToUploadFormat(editingProject.other_documents),
+    };
 
-    try {
-      const { formValues, selectedHouseholds, selectedEmployees, selectedLandPrices } = JSON.parse(tempData);
+    form.setFieldsValue(formValues);
 
-      if (formValues) {
-        const formattedValues = {
-          ...formValues,
-          approval_date: formValues.approval_date ? dayjs(formValues.approval_date) : null,
-          map_approval_date: formValues.map_approval_date ? dayjs(formValues.map_approval_date) : null,
-          land_price_approval_date: formValues.land_price_approval_date ? dayjs(formValues.land_price_approval_date) : null,
-          plan_approval_date: formValues.plan_approval_date ? dayjs(formValues.plan_approval_date) : null,
-          compensation_plan_approval_date: formValues.compensation_plan_approval_date ? dayjs(formValues.compensation_plan_approval_date) : null,
-          site_clearance_start_date: formValues.site_clearance_start_date ? dayjs(formValues.site_clearance_start_date) : null,
-        };
-        form.setFieldsValue(formattedValues);
-      }
-
-      if (selectedHouseholds?.length) dispatch(setSelectedHouseholds(selectedHouseholds));
-      if (selectedEmployees?.length) dispatch(setSelectedEmployees(selectedEmployees));
-      if (selectedLandPrices?.length) dispatch(setSelectedLandPrices(selectedLandPrices));
-
-      localStorage.removeItem("tempFormData");
-    } catch (err) {
-      console.error("Error parsing temporary data:", err);
-      localStorage.removeItem("tempFormData");
-    }
-  }, [isModalVisible, form, dispatch]);
+    dispatch(setSelectedHouseholds((editingProject.households || []).map(id => ({ id }))));
+    dispatch(setSelectedEmployees((editingProject.employees || []).map(id => ({ id }))));
+    dispatch(setSelectedLandPrices((editingProject.lands || []).map(id => ({ id }))));
+  }, [editingProject, form, dispatch]);
   // ================== Open modal ==================
-  const openModal = (project = null) => {
+   const openModal = (project = null) => {
     form.resetFields();
     setEditingProject(project);
 
@@ -322,6 +339,13 @@ export default function ProjectPage() {
         funding_source: project.funding_source,
         resettlement_plan: project.resettlement_plan,
         other_documents: project.other_documents,
+        // Chuyển đổi files thành format phù hợp với Upload component
+        approval_decision_file: convertDbFilesToUploadFormat(project.approval_decision_file),
+        map_file: convertDbFilesToUploadFormat(project.map_file),
+        land_price_file: convertDbFilesToUploadFormat(project.land_price_file),
+        plan_file: convertDbFilesToUploadFormat(project.plan_file),
+        compensation_plan_file: convertDbFilesToUploadFormat(project.compensation_plan_file),
+        other_files: convertDbFilesToUploadFormat(project.other_documents),
       };
 
       form.setFieldsValue(formValues);
@@ -471,38 +495,86 @@ export default function ProjectPage() {
     }
   };
 
+  const renderFile = (files) => {
+    if (!files) return "Chưa có file";
 
-const renderFile = (files) => {
-  if (!files) return "Chưa có file";
+    const extractFileName = (url) => {
+      const fullName = decodeURIComponent(url.split("/").pop().split("?")[0]);
+      // Bỏ phần UUID và timestamp, chỉ lấy tên file gốc
+      // Format: UUID-timestamp_filename.ext -> filename.ext
+      const parts = fullName.split("_");
+      if (parts.length > 1) {
+        // Lấy phần sau dấu _ cuối cùng (tên file gốc)
+        return parts.slice(1).join("_");
+      }
+      // Fallback nếu không có dấu _
+      return fullName.substring(fullName.indexOf("-") + 1);
+    };
 
-  // Nếu BE trả về string (1 file)
-  if (typeof files === "string") {
-    const fileName = decodeURIComponent(files.split("/").pop().split("?")[0]);
-    return (
-      <a href={files} target="_blank" rel="noopener noreferrer">
-        {fileName}
-      </a>
-    );
-  }
-
-  // Nếu BE trả về array
-  if (Array.isArray(files) && files.length > 0) {
-    return files.map((fileUrl, index) => {
-      const fileName = decodeURIComponent(fileUrl.split("/").pop().split("?")[0]);
+    // Nếu BE trả về string (1 file)
+    if (typeof files === "string") {
+      const fileName = extractFileName(files);
       return (
-        <div key={index}>
-          <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-            {fileName}
-          </a>
-        </div>
+        <a href={files} target="_blank" rel="noopener noreferrer">
+          {fileName}
+        </a>
       );
-    });
-  }
+    }
 
-  return "Chưa có file";
-};
+    // Nếu BE trả về array
+    if (Array.isArray(files) && files.length > 0) {
+      return files.map((fileUrl, index) => {
+        const fileName = extractFileName(fileUrl);
+        return (
+          <div key={index}>
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+              {fileName}
+            </a>
+          </div>
+        );
+      });
+    }
 
+    return "Chưa có file";
+  };
 
+   const convertDbFilesToUploadFormat = (files) => {
+    if (!files) return [];
+    
+    const extractOriginalFileName = (url) => {
+      const fullName = decodeURIComponent(url.split("/").pop().split("?")[0]);
+      // Bỏ phần UUID và timestamp, chỉ lấy tên file gốc
+      const parts = fullName.split("_");
+      if (parts.length > 1) {
+        return parts.slice(1).join("_");
+      }
+      return fullName.substring(fullName.indexOf("-") + 1);
+    };
+    
+    // Nếu là string (1 file)
+    if (typeof files === "string") {
+      return [{
+        uid: Date.now().toString(),
+        name: extractOriginalFileName(files),
+        status: 'done',
+        url: files,
+        response: { url: files }
+      }];
+    }
+    
+    // Nếu là array
+    if (Array.isArray(files)) {
+      return files.map((fileUrl, index) => ({
+        uid: `${Date.now()}-${index}`,
+        name: extractOriginalFileName(fileUrl),
+        status: 'done',
+        url: fileUrl,
+        response: { url: fileUrl }
+      }));
+    }
+    
+    return [];
+  };
 
   // ================== Delete ==================
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);

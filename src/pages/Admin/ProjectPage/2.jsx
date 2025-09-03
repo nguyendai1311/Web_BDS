@@ -35,6 +35,7 @@ import {
 import { PageHeader, FilterContainer, HeaderActions, CenteredAction } from "./style";
 import { useLocation, useNavigate } from "react-router-dom";
 import FormUpload from "../../../components/Admin/FormUpload/FormUpload";
+import { uploadFile } from "../../../services/FileService";
 
 export default function ProjectPage() {
   const [projects, setProjects] = useState([]);
@@ -49,18 +50,15 @@ export default function ProjectPage() {
   const [isViewModalVisible, setIsViewModalVisible] = useState(false);
   const [viewProject, setViewProject] = useState(null);
 
-  const [households, setHouseholds] = useState([]);
-  const [employees, setEmployees] = useState([]);
-
   // Lấy dữ liệu từ Redux
   const dispatch = useDispatch();
   const selectedHouseholds = useSelector(state => state.project?.selectedHouseholds || []);
   const selectedEmployees = useSelector(state => state.project?.selectedEmployees || []);
+  const selectedLandPrices = useSelector(state => state.project?.selectedLandPrices || []);
 
   const [form] = Form.useForm();
   const user = JSON.parse(localStorage.getItem("user"));
   const navigate = useNavigate();
-  const location = useLocation();
 
   // ================== Fetch projects ==================
   const fetchProjects = async () => {
@@ -121,6 +119,7 @@ export default function ProjectPage() {
           other_documents: proj.other_documents || "",
           households: proj.households || [],
           employees: proj.employees || [],
+          lands: proj.lands,
           createdAt: proj.createdAt?._seconds
             ? dayjs.unix(proj.createdAt._seconds).format("YYYY-MM-DD HH:mm:ss")
             : "",
@@ -148,6 +147,8 @@ export default function ProjectPage() {
     if (projects.length === 0) return;
 
     const reopenData = localStorage.getItem("reopenModal");
+    console.log('reopenData', reopenData);
+
     if (!reopenData) return;
 
     try {
@@ -155,7 +156,7 @@ export default function ProjectPage() {
       localStorage.removeItem("reopenModal");
 
       const proj = projects.find(p => p.id === projectId || p.key === projectId);
-          
+
       if (type === "view" && proj) {
         setViewProject(proj);
         setIsViewModalVisible(true);
@@ -241,9 +242,9 @@ export default function ProjectPage() {
 
     form.setFieldsValue(formValues);
 
-    dispatch(setSelectedHouseholds(editingProject.households || []));
-    dispatch(setSelectedEmployees(editingProject.employees || []));
-    dispatch(setSelectedLandPrices(editingProject.lands || []));
+    dispatch(setSelectedHouseholds((editingProject.households || []).map(id => ({ id }))));
+    dispatch(setSelectedEmployees((editingProject.employees || []).map(id => ({ id }))));
+    dispatch(setSelectedLandPrices((editingProject.lands || []).map(id => ({ id }))));
   }, [editingProject, form, dispatch]);
 
   // ================== Restore tempFormData khi mở modal ==================
@@ -338,181 +339,126 @@ export default function ProjectPage() {
   // ================== Add / Update ==================
   const handleSubmit = async (values) => {
     try {
-
       setUpdating(true);
+
       if (!values.project_code || !values.project_name) {
         message.error("Vui lòng nhập đầy đủ thông tin bắt buộc!");
         return;
       }
-      const formData = new FormData();
 
-      // Thêm các trường text vào FormData
-      formData.append('project_code', values.project_code);
-      formData.append('project_name', values.project_name);
-      formData.append('investor', values.investor || "");
-      formData.append('approval_decision_no', values.approval_decision_no || "");
-      formData.append('approval_date', values.approval_date ? values.approval_date.format("YYYY-MM-DD") : "");
-      formData.append('map_no', values.map_no || "");
-      formData.append('map_approval_date', values.map_approval_date ? values.map_approval_date.format("YYYY-MM-DD") : "");
-      formData.append('land_price_decision_no', values.land_price_decision_no || "");
-      formData.append('land_price_approval_date', values.land_price_approval_date ? values.land_price_approval_date.format("YYYY-MM-DD") : "");
-      formData.append('compensation_plan_decision_no', values.compensation_plan_decision_no || "");
-      formData.append('compensation_plan_approval_date', values.compensation_plan_approval_date ? values.compensation_plan_approval_date.format("YYYY-MM-DD") : "");
-      formData.append('compensation_plan_no', values.compensation_plan_no || "");
-      formData.append('plan_approval_date', values.plan_approval_date ? values.plan_approval_date.format("YYYY-MM-DD") : "");
-      formData.append('site_clearance_start_date', values.site_clearance_start_date ? values.site_clearance_start_date.format("YYYY-MM-DD") : "");
-      formData.append('project_status', values.project_status || "");
-      formData.append('project_objectives', values.project_objectives || "");
-      formData.append('project_scale', values.project_scale || "");
-      formData.append('project_location', values.project_location || "");
-      formData.append('construction_cost', values.construction_cost || 0);
-      formData.append('project_management_cost', values.project_management_cost || 0);
-      formData.append('consulting_cost', values.consulting_cost || 0);
-      formData.append('other_costs', values.other_costs || 0);
-      formData.append('contingency_cost', values.contingency_cost || 0);
-      formData.append('land_clearance_cost', values.land_clearance_cost || 0);
-      formData.append('start_point', values.start_point || "");
-      formData.append('end_point', values.end_point || "");
-      formData.append('total_length', values.total_length || 0);
-      formData.append('funding_source', values.funding_source || "");
-      formData.append('resettlement_plan', values.resettlement_plan || "");
-      formData.append('other_documents', values.other_documents || "");
+      // Hàm upload file trước và trả về URL
+      const processFiles = async (fileList, fieldName) => {
+        if (!fileList || !Array.isArray(fileList)) return null;
+        const uploadedFiles = [];
 
-      // Thêm households và employees từ Redux
-      formData.append("households", JSON.stringify(selectedHouseholds.map(h => h.id).filter(Boolean)));
-      formData.append("employees", JSON.stringify(selectedEmployees.map(e => e.id).filter(Boolean)));
-
-      // Xử lý files - chỉ thêm files mới (chưa upload)
-      const fileFields = [
-        'approval_decision_file',
-        'map_file',
-        'land_price_file',
-        'compensation_plan_file',
-        'plan_file',
-        'other_files'
-      ];
-
-      fileFields.forEach(fieldName => {
-        const fileList = values[fieldName];
-        if (fileList && Array.isArray(fileList)) {
-          fileList.forEach(file => {
-            // Chỉ thêm file mới (có originFileObj)
-            if (file.originFileObj) {
-              // Sử dụng fieldName phù hợp với backend
-              let backendFieldName = fieldName;
-              if (fieldName === 'other_files') {
-                backendFieldName = 'other_documents'; // Backend expect other_documents
+        for (const f of fileList) {
+          if (f.url) {
+            uploadedFiles.push(f.url); // file đã có URL
+          } else if (f.originFileObj) {
+            try {
+              const formData = new FormData();
+              formData.append(fieldName, f.originFileObj);
+              const res = await uploadFile(formData, user?.access_token);
+              if (res?.files?.[0]?.url) {
+                uploadedFiles.push(res.files[0].url);
               }
-              formData.append(backendFieldName, file.originFileObj);
+            } catch (uploadErr) {
+              console.error("Error uploading file:", uploadErr);
+              message.warning(`Không thể upload file ${f.name}`);
             }
-          });
+          }
         }
-      });
+        return uploadedFiles.length === 1 ? uploadedFiles[0] : uploadedFiles;
+      };
 
-      console.log(">>> FormData entries:");
-      for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + (pair[1] instanceof File ? `File: ${pair[1].name}` : pair[1]));
-      }
+      // Upload tất cả file trước
+      const uploadedApprovalDecisionFile = await processFiles(values.approval_decision_file, 'approval_decision_file');
+      const uploadedMapFile = await processFiles(values.map_file, 'map_file');
+      const uploadedLandPriceFile = await processFiles(values.land_price_file, 'land_price_file');
+      const uploadedCompensationPlanFile = await processFiles(values.compensation_plan_file, 'compensation_plan_file');
+      const uploadedPlanFile = await processFiles(values.plan_file, 'plan_file');
+      const uploadedOtherFiles = await processFiles(values.other_files, 'other_files');
+
+      // Chuẩn bị payload JSON để gửi lên backend
+      const payload = {
+        project_code: values.project_code,
+        project_name: values.project_name,
+        investor: values.investor || "",
+        approval_decision_no: values.approval_decision_no || "",
+        approval_date: values.approval_date ? values.approval_date.format("YYYY-MM-DD") : "",
+        map_no: values.map_no || "",
+        map_approval_date: values.map_approval_date ? values.map_approval_date.format("YYYY-MM-DD") : "",
+        land_price_decision_no: values.land_price_decision_no || "",
+        land_price_approval_date: values.land_price_approval_date ? values.land_price_approval_date.format("YYYY-MM-DD") : "",
+        compensation_plan_decision_no: values.compensation_plan_decision_no || "",
+        compensation_plan_approval_date: values.compensation_plan_approval_date ? values.compensation_plan_approval_date.format("YYYY-MM-DD") : "",
+        compensation_plan_no: values.compensation_plan_no || "",
+        plan_approval_date: values.plan_approval_date ? values.plan_approval_date.format("YYYY-MM-DD") : "",
+        site_clearance_start_date: values.site_clearance_start_date ? values.site_clearance_start_date.format("YYYY-MM-DD") : "",
+        project_status: values.project_status || "",
+        project_objectives: values.project_objectives || "",
+        project_scale: values.project_scale || "",
+        project_location: values.project_location || "",
+        construction_cost: values.construction_cost || 0,
+        project_management_cost: values.project_management_cost || 0,
+        consulting_cost: values.consulting_cost || 0,
+        other_costs: values.other_costs || 0,
+        contingency_cost: values.contingency_cost || 0,
+        land_clearance_cost: values.land_clearance_cost || 0,
+        start_point: values.start_point || "",
+        end_point: values.end_point || "",
+        total_length: values.total_length || 0,
+        funding_source: values.funding_source || "",
+        resettlement_plan: values.resettlement_plan || "",
+        approval_decision_file: uploadedApprovalDecisionFile,
+        map_file: uploadedMapFile,
+        land_price_file: uploadedLandPriceFile,
+        compensation_plan_file: uploadedCompensationPlanFile,
+        plan_file: uploadedPlanFile,
+        other_documents: uploadedOtherFiles,
+        households: selectedHouseholds.map(h => h.id).filter(Boolean),
+        employees: selectedEmployees.map(e => e.id).filter(Boolean),
+        lands: selectedLandPrices.map(e => e.id).filter(Boolean),
+
+      };
 
       let result;
       if (editingProject) {
-        result = await ProjectService.updateProject(editingProject.key, formData, user?.access_token);
+        result = await ProjectService.updateProject(editingProject.key, payload, user?.access_token);
         message.success("Cập nhật dự án thành công!");
       } else {
-        result = await ProjectService.createProject(formData, user?.access_token);
+        result = await ProjectService.createProject(payload, user?.access_token);
         message.success("Thêm dự án thành công!");
       }
 
-      console.log(">>> API response:", result);
-
-      // Cập nhật state local với dữ liệu từ Redux
+      // Xử lý cập nhật state local như trước
       const savedProject = result.data || result;
-
-      // Parse households và employees nếu chúng là string
-      let parsedHouseholds = [];
-      let parsedEmployees = [];
-
-      try {
-        parsedHouseholds = typeof savedProject.households === 'string'
-          ? JSON.parse(savedProject.households)
-          : (Array.isArray(savedProject.households) ? savedProject.households : []);
-      } catch (e) {
-        parsedHouseholds = selectedHouseholds.map(h => ({ id: h.id }));
-      }
-
-      try {
-        parsedEmployees = typeof savedProject.employees === 'string'
-          ? JSON.parse(savedProject.employees)
-          : (Array.isArray(savedProject.employees) ? savedProject.employees : []);
-      } catch (e) {
-        parsedEmployees = selectedEmployees.map(e => ({ id: e.id }));
-      }
+      const parsedHouseholds = typeof savedProject.households === 'string' ? JSON.parse(savedProject.households) : (savedProject.households || []);
+      const parsedEmployees = typeof savedProject.employees === 'string' ? JSON.parse(savedProject.employees) : (savedProject.employees || []);
+      const parsedLands = typeof savedProject.lands === 'string' ? JSON.parse(savedProject.lands) : (savedProject.lands || []);
 
       const projectItem = {
         key: savedProject.id,
-        id: savedProject.id,
-        project_code: savedProject.project_code,
-        name: savedProject.project_name,
-        investor: savedProject.investor,
-        approval_decision_no: savedProject.approval_decision_no,
-        approval_date: savedProject.approval_date,
-        approval_decision_file: savedProject.approval_decision_file,
-        map_no: savedProject.map_no,
-        map_approval_date: savedProject.map_approval_date,
-        map_file: savedProject.map_file,
-        land_price_decision_no: savedProject.land_price_decision_no,
-        land_price_approval_date: savedProject.land_price_approval_date,
-        land_price_file: savedProject.land_price_file,
-        compensation_plan_decision_no: savedProject.compensation_plan_decision_no,
-        compensation_plan_approval_date: savedProject.compensation_plan_approval_date,
-        compensation_plan_file: savedProject.compensation_plan_file,
-        compensation_plan_no: savedProject.compensation_plan_no,
-        plan_approval_date: savedProject.plan_approval_date,
-        plan_file: savedProject.plan_file,
-        site_clearance_start_date: savedProject.site_clearance_start_date,
-        project_status: savedProject.project_status,
-        project_objectives: savedProject.project_objectives,
-        project_scale: savedProject.project_scale,
-        project_location: savedProject.project_location,
-        construction_cost: savedProject.construction_cost,
-        project_management_cost: savedProject.project_management_cost,
-        consulting_cost: savedProject.consulting_cost,
-        other_costs: savedProject.other_costs,
-        contingency_cost: savedProject.contingency_cost,
-        land_clearance_cost: savedProject.land_clearance_cost,
-        start_point: savedProject.start_point,
-        end_point: savedProject.end_point,
-        total_length: savedProject.total_length,
-        funding_source: savedProject.funding_source,
-        resettlement_plan: savedProject.resettlement_plan,
-        other_documents: savedProject.other_documents,
-        // Sử dụng dữ liệu đã parse
+        ...savedProject,
         households: parsedHouseholds,
         employees: parsedEmployees,
-        createdAt: savedProject.createdAt,
-        updatedAt: savedProject.updatedAt,
+        lands: parsedLands
       };
 
-      // Cập nhật state
       if (editingProject) {
-        setProjects((prev) =>
-          prev.map((p) => (p.key === projectItem.key ? projectItem : p))
-        );
-        setFilteredProjects((prev) =>
-          prev.map((p) => (p.key === projectItem.key ? projectItem : p))
-        );
+        setProjects(prev => prev.map(p => p.key === projectItem.key ? projectItem : p));
+        setFilteredProjects(prev => prev.map(p => p.key === projectItem.key ? projectItem : p));
       } else {
-        setProjects((prev) => [...prev, projectItem]);
-        setFilteredProjects((prev) => [...prev, projectItem]);
+        setProjects(prev => [...prev, projectItem]);
+        setFilteredProjects(prev => [...prev, projectItem]);
       }
 
-      // Xóa dữ liệu tạm và clear Redux
       localStorage.removeItem("tempProjectData");
       localStorage.removeItem("selectedHouseholdsForNewProject");
       dispatch(clearHouseholds());
       dispatch(clearEmployees());
+      dispatch(clearLandPrices());
 
-      // Close modal and reset
       form.resetFields();
       setEditingProject(null);
       setIsModalVisible(false);
@@ -525,16 +471,39 @@ export default function ProjectPage() {
     }
   };
 
-  const renderFile = (file) => {
-    if (!file) return "Không có";
+  const renderFile = (files) => {
+    if (!files) return "Chưa có file";
 
-    if (Array.isArray(file)) {
-      return file.map((f, idx) => {
-        const url = f.url || f;
-        const fileName = f.name || f.url?.split("/").pop() || `Tệp ${idx + 1}`;
+    const extractFileName = (url) => {
+      const fullName = decodeURIComponent(url.split("/").pop().split("?")[0]);
+      // Bỏ phần UUID và timestamp, chỉ lấy tên file gốc
+      // Format: UUID-timestamp_filename.ext -> filename.ext
+      const parts = fullName.split("_");
+      if (parts.length > 1) {
+        // Lấy phần sau dấu _ cuối cùng (tên file gốc)
+        return parts.slice(1).join("_");
+      }
+      // Fallback nếu không có dấu _
+      return fullName.substring(fullName.indexOf("-") + 1);
+    };
+
+    // Nếu BE trả về string (1 file)
+    if (typeof files === "string") {
+      const fileName = extractFileName(files);
+      return (
+        <a href={files} target="_blank" rel="noopener noreferrer">
+          {fileName}
+        </a>
+      );
+    }
+
+    // Nếu BE trả về array
+    if (Array.isArray(files) && files.length > 0) {
+      return files.map((fileUrl, index) => {
+        const fileName = extractFileName(fileUrl);
         return (
-          <div key={idx}>
-            <a href={url} target="_blank" rel="noopener noreferrer">
+          <div key={index}>
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer">
               {fileName}
             </a>
           </div>
@@ -542,25 +511,9 @@ export default function ProjectPage() {
       });
     }
 
-    if (typeof file === "string") {
-      const fileName = file.split("/").pop();
-      return (
-        <a href={file} target="_blank" rel="noopener noreferrer">
-          {fileName}
-        </a>
-      );
-    }
-
-    if (typeof file === "object") {
-      return (
-        <a href={file.url} target="_blank" rel="noopener noreferrer">
-          {file.name || file.url?.split("/").pop()}
-        </a>
-      );
-    }
-
-    return "Không có";
+    return "Chưa có file";
   };
+
 
   // ================== Delete ==================
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
@@ -816,32 +769,48 @@ export default function ProjectPage() {
           <Col span={6}><b>Tổng chiều dài:</b></Col>
           <Col span={18}>{viewProject?.total_length ? `${viewProject.total_length}m` : "0m"}</Col>
         </Row>
-
+        {/* Hộ dân */}
         <Divider orientation="left">Hộ dân liên quan</Divider>
         <Row gutter={16} style={{ marginBottom: 8 }}>
           <Col span={24}>
-            {(viewProject?.households || []).filter(h => h && h !== "undefined" && h.trim() !== "").length > 0
-              ? (viewProject.households || [])
-                .filter(h => h && h !== "undefined" && h.trim() !== "")
-                .map((h, i) => (
-                  <div key={i} style={{ marginBottom: 4 }}>
-                    <span style={{ color: '#1890ff' }}>Hộ dân ID: {h}</span>
-                  </div>
-                ))
-              : <span style={{ color: '#999' }}>Không có hộ dân nào</span>}
+            {viewProject?.id && (
+              <Button
+                type="primary"
+                onClick={() => navigate(`/system/admin/households/${viewProject.id}/view`)}
+              >
+                Xem tất cả hộ dân
+              </Button>
+            )}
           </Col>
         </Row>
 
+        {/* Nhân sự */}
         <Divider orientation="left">Nhân sự tham gia</Divider>
         <Row gutter={16} style={{ marginBottom: 8 }}>
           <Col span={24}>
-            {(viewProject?.employees || []).length > 0
-              ? viewProject.employees.map((e, i) => (
-                <div key={i} style={{ marginBottom: 4 }}>
-                  <span style={{ color: '#52c41a' }}>Nhân sự ID: {e}</span>
-                </div>
-              ))
-              : <span style={{ color: '#999' }}>Không có nhân sự nào</span>}
+            {viewProject?.id && (
+              <Button
+                type="primary"
+                onClick={() => navigate(`/system/admin/employees/${viewProject.id}/view`)}
+              >
+                Xem tất cả nhân sự
+              </Button>
+            )}
+          </Col>
+        </Row>
+
+        {/* Bảng giá đất */}
+        <Divider orientation="left">Bảng giá đất liên quan</Divider>
+        <Row gutter={16} style={{ marginBottom: 8 }}>
+          <Col span={24}>
+            {viewProject?.id && (
+              <Button
+                type="primary"
+                onClick={() => navigate(`/system/admin/lands/${viewProject.id}/view`)}
+              >
+                Xem tất cả bảng giá đất
+              </Button>
+            )}
           </Col>
         </Row>
       </Modal>
@@ -886,6 +855,7 @@ export default function ProjectPage() {
             </Col>
             <Col>
               <Space>
+                {/* Hộ dân */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <span style={{ marginRight: 8, fontWeight: 500 }}>
                     Hộ dân ({selectedHouseholds.length}):
@@ -899,7 +869,8 @@ export default function ProjectPage() {
                         localStorage.setItem("tempFormData", JSON.stringify({
                           formValues: formData,
                           selectedHouseholds,
-                          selectedEmployees
+                          selectedEmployees,
+                          selectedLandPrices
                         }));
                         setIsModalVisible(false);
                         localStorage.setItem("reopenModal", JSON.stringify({
@@ -920,7 +891,8 @@ export default function ProjectPage() {
                         localStorage.setItem("tempFormData", JSON.stringify({
                           formValues: formData,
                           selectedHouseholds,
-                          selectedEmployees
+                          selectedEmployees,
+                          selectedLandPrices
                         }));
                         setIsModalVisible(false);
                         localStorage.setItem("reopenModal", JSON.stringify({
@@ -934,9 +906,58 @@ export default function ProjectPage() {
                     </Button>
                   )}
                 </div>
-                <Button type="default" onClick={() => navigate("/duong-dan-trang-2")}>
-                  Đơn giá đất
-                </Button>
+
+                {/* Đơn giá đất */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <span style={{ marginRight: 8, fontWeight: 500 }}>
+                    Đơn giá đất ({selectedLandPrices.length}):
+                  </span>
+                  {editingProject ? (
+                    <Button
+                      type="link"
+                      icon={<EditOutlined />}
+                      onClick={() => {
+                        const formData = form.getFieldsValue();
+                        localStorage.setItem("tempFormData", JSON.stringify({
+                          formValues: formData,
+                          selectedHouseholds,
+                          selectedEmployees,
+                          selectedLandPrices
+                        }));
+                        setIsModalVisible(false);
+                        localStorage.setItem("reopenModal", JSON.stringify({
+                          type: "edit",
+                          projectId: editingProject?.id
+                        }));
+                        navigate(`/system/admin/lands/${editingProject?.id}/edit`);
+                      }}
+                    >
+                      Sửa đơn giá đất
+                    </Button>
+                  ) : (
+                    <Button
+                      type="dashed"
+                      icon={<PlusOutlined />}
+                      onClick={() => {
+                        const formData = form.getFieldsValue(true);
+                        localStorage.setItem("tempFormData", JSON.stringify({
+                          formValues: formData,
+                          selectedHouseholds,
+                          selectedEmployees,
+                          selectedLandPrices
+                        }));
+                        setIsModalVisible(false);
+                        localStorage.setItem("reopenModal", JSON.stringify({
+                          type: "add",
+                          projectId: "new"
+                        }));
+                        navigate(`/system/admin/lands/new/add`);
+                      }}
+                    >
+                      Thêm đơn giá đất
+                    </Button>
+                  )}
+                </div>
               </Space>
             </Col>
           </Row>
@@ -977,50 +998,184 @@ export default function ProjectPage() {
             </Col>
           </Row>
 
-          {/* Các phần upload gọn nhờ FormUpload */}
+          {/* Phê duyệt dự án */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
             <Col span={4}><label>Quyết định phê duyệt dự án:</label></Col>
-            <Col span={4}><Form.Item name="approval_decision_no"><Input /></Form.Item></Col>
+            <Col span={4}>
+              <Form.Item name="approval_decision_no" style={{ marginBottom: 0 }}>
+                <Input placeholder="Số quyết định" />
+              </Form.Item>
+            </Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}><Form.Item name="approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
+            <Col span={5}>
+              <Form.Item name="approval_date" style={{ marginBottom: 0 }}>
+                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
+              </Form.Item>
+            </Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}><FormUpload name="approval_decision_file" maxCount={5} /></Col>
+            <Col span={6}>
+              <Form.Item
+                name="approval_decision_file"
+                valuePropName="fileList"
+                getValueFromEvent={(e) => {
+                  if (Array.isArray(e)) return e;
+                  return e?.fileList || [];
+                }}
+                style={{ marginBottom: 0 }}
+              >
+                <Upload
+                  listType="text"
+                  beforeUpload={() => false}
+                  maxCount={5}
+                >
+                  <Button icon={<UploadOutlined />}>Upload</Button>
+                </Upload>
+              </Form.Item>
+            </Col>
           </Row>
 
+          {/* Bản đồ hiện trạng */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col span={4}><label>Bản đồ hiện trạng vị trí:</label></Col>
-            <Col span={4}><Form.Item name="map_no"><Input /></Form.Item></Col>
+            <Col span={4}><label>Bản đồ hiện trạng vị trí đã được sở duyệt:</label></Col>
+            <Col span={4}>
+              <Form.Item name="map_no" style={{ marginBottom: 0 }}>
+                <Input placeholder="Số bản đồ" />
+              </Form.Item>
+            </Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}><Form.Item name="map_approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
+            <Col span={5}>
+              <Form.Item name="map_approval_date" style={{ marginBottom: 0 }}>
+                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
+              </Form.Item>
+            </Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}><FormUpload name="map_file" maxCount={5} /></Col>
+            <Col span={6}>
+              <Form.Item
+                name="map_file"
+                valuePropName="fileList"
+                getValueFromEvent={(e) => {
+                  if (Array.isArray(e)) return e;
+                  return e?.fileList || [];
+                }}
+                style={{ marginBottom: 0 }}
+              >
+                <Upload
+                  listType="text"
+                  beforeUpload={() => false}
+                  maxCount={5}
+                >
+                  <Button icon={<UploadOutlined />}>Upload</Button>
+                </Upload>
+              </Form.Item>
+            </Col>
           </Row>
 
+          {/* Quyết định phê duyệt giá đất */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
             <Col span={4}><label>Quyết định phê duyệt giá đất:</label></Col>
-            <Col span={4}><Form.Item name="land_price_decision_no"><Input /></Form.Item></Col>
+            <Col span={4}>
+              <Form.Item name="land_price_decision_no" style={{ marginBottom: 0 }}>
+                <Input placeholder="Số quyết định" />
+              </Form.Item>
+            </Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}><Form.Item name="land_price_approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
+            <Col span={5}>
+              <Form.Item name="land_price_approval_date" style={{ marginBottom: 0 }}>
+                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
+              </Form.Item>
+            </Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}><FormUpload name="land_price_file" maxCount={5} /></Col>
+            <Col span={6}>
+              <Form.Item
+                name="land_price_file"
+                valuePropName="fileList"
+                getValueFromEvent={(e) => {
+                  if (Array.isArray(e)) return e;
+                  return e?.fileList || [];
+                }}
+                style={{ marginBottom: 0 }}
+              >
+                <Upload
+                  listType="text"
+                  beforeUpload={() => false}
+                  maxCount={5}
+                >
+                  <Button icon={<UploadOutlined />}>Upload</Button>
+                </Upload>
+              </Form.Item>
+            </Col>
           </Row>
 
+          {/* Phương án BT, HT, TĐC */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
             <Col span={4}><label>Phương án BT, HT, TĐC:</label></Col>
-            <Col span={4}><Form.Item name="compensation_plan_no"><Input /></Form.Item></Col>
+            <Col span={4}>
+              <Form.Item name="compensation_plan_no" style={{ marginBottom: 0 }}>
+                <Input placeholder="Số quyết định" />
+              </Form.Item>
+            </Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}><Form.Item name="plan_approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
+            <Col span={5}>
+              <Form.Item name="plan_approval_date" style={{ marginBottom: 0 }}>
+                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
+              </Form.Item>
+            </Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}><FormUpload name="plan_file" maxCount={5} /></Col>
+            <Col span={6}>
+              <Form.Item
+                name="plan_file"
+                valuePropName="fileList"
+                getValueFromEvent={(e) => {
+                  if (Array.isArray(e)) return e;
+                  return e?.fileList || [];
+                }}
+                style={{ marginBottom: 0 }}
+              >
+                <Upload
+                  listType="text"
+                  beforeUpload={() => false}
+                  maxCount={5}
+                >
+                  <Button icon={<UploadOutlined />}>Upload</Button>
+                </Upload>
+              </Form.Item>
+            </Col>
           </Row>
 
+          {/* Quyết định phê duyệt phương án BT, HT, TĐC */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col span={4}><label>QĐ phê duyệt phương án BT, HT, TĐC:</label></Col>
-            <Col span={4}><Form.Item name="compensation_plan_decision_no"><Input /></Form.Item></Col>
+            <Col span={4}><label>Quyết định phê duyệt phương án BT, HT, TĐC:</label></Col>
+            <Col span={4}>
+              <Form.Item name="compensation_plan_decision_no" style={{ marginBottom: 0 }}>
+                <Input placeholder="Số quyết định" />
+              </Form.Item>
+            </Col>
             <Col span={3}><label>Ngày phê duyệt:</label></Col>
-            <Col span={5}><Form.Item name="compensation_plan_approval_date"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
+            <Col span={5}>
+              <Form.Item name="compensation_plan_approval_date" style={{ marginBottom: 0 }}>
+                <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} placeholder="Chọn ngày" />
+              </Form.Item>
+            </Col>
             <Col span={2}><label>Đính kèm:</label></Col>
-            <Col span={6}><FormUpload name="compensation_plan_file" maxCount={5} /></Col>
+            <Col span={6}>
+              <Form.Item
+                name="compensation_plan_file"
+                valuePropName="fileList"
+                getValueFromEvent={(e) => {
+                  if (Array.isArray(e)) return e;
+                  return e?.fileList || [];
+                }}
+                style={{ marginBottom: 0 }}
+              >
+                <Upload
+                  listType="text"
+                  beforeUpload={() => false}
+                  maxCount={5}
+                >
+                  <Button icon={<UploadOutlined />}>Upload</Button>
+                </Upload>
+              </Form.Item>
+            </Col>
           </Row>
 
           {/* Thời gian, trạng thái */}
@@ -1043,15 +1198,30 @@ export default function ProjectPage() {
           {/* Văn bản khác */}
           <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
             <Col span={4}><label>Văn bản đính kèm khác:</label></Col>
-            <Col span={20}><FormUpload name="other_files" maxCount={10} /></Col>
+            <Col span={20}>
+              <Form.Item
+                name="other_files"
+                valuePropName="fileList"
+                getValueFromEvent={(e) => e?.fileList || []}
+              >
+                <FormUpload maxCount={10} />
+              </Form.Item>
+            </Col>
           </Row>
 
           {/* Các trường text */}
-          <Row gutter={16}><Col span={4}><label>Mục tiêu dự án:</label></Col><Col span={20}><Form.Item name="project_objectives"><Input.TextArea rows={1} /></Form.Item></Col></Row>
-          <Row gutter={16}><Col span={4}><label>Quy mô dự án:</label></Col><Col span={20}><Form.Item name="project_scale"><Input.TextArea rows={1} /></Form.Item></Col></Row>
-          <Row gutter={16}><Col span={4}><label>Địa điểm dự án:</label></Col><Col span={20}><Form.Item name="project_location"><Input.TextArea rows={1} /></Form.Item></Col></Row>
-          <Row gutter={16}><Col span={4}><label>Nguồn vốn dự án:</label></Col><Col span={20}><Form.Item name="funding_source"><Input.TextArea rows={1} /></Form.Item></Col></Row>
-          <Row gutter={16}><Col span={4}><label>Kế hoạch bố trí TĐC:</label></Col><Col span={20}><Form.Item name="resettlement_plan"><Input.TextArea rows={1} /></Form.Item></Col></Row>
+          {[
+            { label: "Mục tiêu dự án", name: "project_objectives" },
+            { label: "Quy mô dự án", name: "project_scale" },
+            { label: "Địa điểm dự án", name: "project_location" },
+            { label: "Nguồn vốn dự án", name: "funding_source" },
+            { label: "Kế hoạch bố trí TĐC", name: "resettlement_plan" },
+          ].map((item, idx) => (
+            <Row gutter={16} key={idx} style={{ marginBottom: 16 }}>
+              <Col span={4}><label>{item.label}:</label></Col>
+              <Col span={20}><Form.Item name={item.name}><Input.TextArea rows={1} /></Form.Item></Col>
+            </Row>
+          ))}
 
           {/* Nhân viên */}
           <Row gutter={16} style={{ marginBottom: 16 }}>
@@ -1067,7 +1237,8 @@ export default function ProjectPage() {
                   localStorage.setItem("tempFormData", JSON.stringify({
                     formValues: formData,
                     selectedHouseholds,
-                    selectedEmployees
+                    selectedEmployees,
+                    selectedLandPrices
                   }));
                   setIsModalVisible(false);
                   localStorage.setItem("reopenModal", JSON.stringify({
@@ -1091,6 +1262,7 @@ export default function ProjectPage() {
                   setEditingProject(null);
                   dispatch(clearHouseholds());
                   dispatch(clearEmployees());
+                  dispatch(clearLandPrices());
                   form.resetFields();
                   localStorage.removeItem("tempFormData");
                   localStorage.removeItem("reopenModal");
@@ -1106,6 +1278,6 @@ export default function ProjectPage() {
           </Row>
         </Form>
       </Modal>
-    </div>
+    </div >
   );
 }
