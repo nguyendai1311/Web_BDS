@@ -138,18 +138,65 @@ export default function CitizenPage() {
   const convertFileList = (files) => {
     if (!files) return [];
     if (Array.isArray(files)) {
-      return files.map((url, idx) => ({
+      return files.map((f, idx) => ({
         uid: idx.toString(),
-        name: url.split("/").pop(),
-        url,
+        name: f.originalname || f.name || f.path?.split("/").pop(),
         status: "done",
+        url: f.url || f.path || "",
+        size: f.size || 0,
+        type: f.mimetype || "application/octet-stream",
       }));
-    } else {
+    } else if (typeof files === "object") {
       return [
-        { uid: "0", name: files.split("/").pop(), url: files, status: "done" },
+        {
+          uid: "0",
+          name: files.originalname || files.name || files.path?.split("/").pop(),
+          status: "done",
+          url: files.url || files.path || "",
+          size: files.size || 0,
+          type: files.mimetype || "application/octet-stream",
+        },
       ];
     }
+    return [];
   };
+
+
+  const renderAttachment = (dinhKem) => {
+    if (!dinhKem) return null;
+
+    // Nếu BE trả về object
+    if (typeof dinhKem === "object" && dinhKem.url) {
+      return (
+        <a href={dinhKem.url} target="_blank" rel="noreferrer">
+          📎 {dinhKem.originalname || "Xem file"}
+        </a>
+      );
+    }
+
+    // Nếu BE trả về mảng object
+    if (Array.isArray(dinhKem)) {
+      return dinhKem.map((f, idx) => (
+        <div key={idx}>
+          <a href={f.url || f} target="_blank" rel="noreferrer">
+            📎 {f.originalname || f.name || `File ${idx + 1}`}
+          </a>
+        </div>
+      ));
+    }
+
+    // Nếu chỉ là string URL
+    if (typeof dinhKem === "string") {
+      return (
+        <a href={dinhKem} target="_blank" rel="noreferrer">
+          📎 Xem file
+        </a>
+      );
+    }
+
+    return null;
+  };
+
 
   const handleDelete = (record) => {
     setEditingCitizen(record);
@@ -165,7 +212,7 @@ export default function CitizenPage() {
     try {
       await CitizenService.remove(editingCitizen.key, user?.access_token);
       message.success(`Đã xóa dân cư: ${editingCitizen.hoTenChuSuDung}`);
-      
+
       // Reload data sau khi xóa
       await fetchCitizens();
       setIsDeleteModalVisible(false);
@@ -188,30 +235,42 @@ export default function CitizenPage() {
       }
 
       const processFiles = async (fileList, fieldName) => {
-        if (!fileList || !Array.isArray(fileList)) return null;
+        if (!fileList || !Array.isArray(fileList)) return [];
+
         const uploadedFiles = [];
-        
+
         for (const f of fileList) {
-          if (f.url) {
-            // File đã tồn tại
-            uploadedFiles.push(f.url);
+          if (f.url && !f.originFileObj) {
+            // ✅ File cũ, giữ nguyên metadata (nếu có) hoặc ít nhất trả về object đồng nhất
+            uploadedFiles.push({
+              fieldname: fieldName,
+              originalname: f.name,
+              mimetype: f.type || "application/octet-stream",
+              size: f.size || 0,
+              url: f.url,
+            });
           } else if (f.originFileObj) {
-            // File mới cần upload
+            // ✅ File mới upload
             try {
               const formData = new FormData();
               formData.append(fieldName, f.originFileObj);
               const res = await uploadFile(formData, user?.access_token);
-              if (res?.files?.[0]?.url) {
-                uploadedFiles.push(res.files[0].url);
+
+              if (res?.data) {
+                uploadedFiles.push(res.data); // backend đã trả đúng format { fieldname, originalname, url, size, mimetype }
+              } else if (res?.files?.[0]) {
+                uploadedFiles.push(res.files[0]);
               }
-            } catch (uploadErr) {
-              console.error("Error uploading file:", uploadErr);
+            } catch (err) {
+              console.error("Error uploading file:", err);
               message.warning(`Không thể upload file ${f.name}`);
             }
           }
         }
-        return uploadedFiles.length === 1 ? uploadedFiles[0] : uploadedFiles;
+        return uploadedFiles;
       };
+
+
 
       const normalizedValues = {
         ...values,
@@ -279,7 +338,7 @@ export default function CitizenPage() {
           id: editingCitizen.id,
           updatedAt: new Date().toISOString(),
         };
-        
+
         console.log("Updating citizen with ID:", editingCitizen.id);
         savedCitizen = await CitizenService.update(
           editingCitizen.id,
@@ -422,7 +481,7 @@ export default function CitizenPage() {
           key: citizenData.id,
           id: citizenData.id
         });
-        
+
         form.setFieldsValue(converted);
         setIsAddEditModalVisible(true);
       }
@@ -477,7 +536,7 @@ export default function CitizenPage() {
       <PageHeader>
         <h2>Quản lý dân cư</h2>
       </PageHeader>
-      
+
       <FilterContainer
         style={{
           display: "flex",
@@ -622,7 +681,7 @@ export default function CitizenPage() {
                   getValueFromEvent={(e) => e?.fileList || []}
                   style={{ marginBottom: 0 }}
                 >
-                  <Upload 
+                  <Upload
                     listType="text"
                     beforeUpload={() => false} // Prevent auto upload
                     multiple
@@ -720,10 +779,9 @@ export default function CitizenPage() {
                 <span><b>Ngày:</b> {viewingCitizen?.thongBaoThuHoiDat?.ngay || "N/A"}</span>
               </Col>
               <Col span={8}>
-                {viewingCitizen?.thongBaoThuHoiDat?.dinhKem && (
-                  <a href={viewingCitizen.thongBaoThuHoiDat.dinhKem} target="_blank" rel="noreferrer">📎 Xem file</a>
-                )}
+                {renderAttachment(viewingCitizen?.thongBaoThuHoiDat?.dinhKem)}
               </Col>
+
             </Row>
 
             {/* --- Quyết định phê duyệt --- */}
@@ -735,9 +793,7 @@ export default function CitizenPage() {
                 <span><b>Ngày:</b> {viewingCitizen?.quyetDinhPheDuyet?.ngay || "N/A"}</span>
               </Col>
               <Col span={8}>
-                {viewingCitizen?.quyetDinhPheDuyet?.dinhKem && (
-                  <a href={viewingCitizen.quyetDinhPheDuyet.dinhKem} target="_blank" rel="noreferrer">📎 Xem file</a>
-                )}
+                {renderAttachment(viewingCitizen?.quyetDinhPheDuyet?.dinhKem)}
               </Col>
             </Row>
 
@@ -750,9 +806,7 @@ export default function CitizenPage() {
                 <span><b>Ngày:</b> {viewingCitizen?.phuongAnBTHTTDC?.ngay || "N/A"}</span>
               </Col>
               <Col span={8}>
-                {viewingCitizen?.phuongAnBTHTTDC?.dinhKem && (
-                  <a href={viewingCitizen.phuongAnBTHTTDC.dinhKem} target="_blank" rel="noreferrer">📎 Xem file</a>
-                )}
+                {renderAttachment(viewingCitizen?.phuongAnBTHTTDC?.dinhKem)}
               </Col>
             </Row>
 
@@ -791,9 +845,7 @@ export default function CitizenPage() {
                   )}
                 </Col>
                 <Col span={8}>
-                  {status.data?.dinhKem && (
-                    <a href={status.data.dinhKem} target="_blank" rel="noreferrer">📎 Xem file</a>
-                  )}
+                  {renderAttachment(status.data?.dinhKem)}
                 </Col>
               </Row>
             ))}
