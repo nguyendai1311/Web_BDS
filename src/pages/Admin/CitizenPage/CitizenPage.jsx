@@ -135,27 +135,50 @@ export default function CitizenPage() {
   }, [searchKeyword, citizens]);
 
   // Hàm convert file list
-  const convertFileList = (files) => {
-    if (!files) return [];
-    if (Array.isArray(files)) {
-      return files.map((f, idx) => ({
-        uid: idx.toString(),
-        name: f.name || f.path?.split("/").pop(),
-        url: f.path || "", // lưu path để sau request signed URL
+const convertFileList = (files) => {
+  if (!files) return [];
+
+  // Nếu BE trả về array
+  if (Array.isArray(files)) {
+    return files.map((f, idx) => ({
+      uid: idx.toString(),
+      name: f.originalname || f.name || f.path?.split("/").pop(),
+      status: "done",
+      url: f.url || f.path || "",
+      size: f.size || 0,
+      type: f.mimetype || "application/octet-stream",
+    }));
+  }
+
+  // Nếu BE trả về object đơn
+  if (typeof files === "object" && files.url) {
+    return [
+      {
+        uid: "0",
+        name: files.originalname || files.name || files.path?.split("/").pop(),
         status: "done",
-      }));
-    } else if (typeof files === "object") {
-      return [
-        {
-          uid: "0",
-          name: files.name || files.path?.split("/").pop(),
-          url: files.path || "",
-          status: "done",
-        },
-      ];
-    }
-    return [];
-  };
+        url: files.url || files.path || "",
+        size: files.size || 0,
+        type: files.mimetype || "application/octet-stream",
+      },
+    ];
+  }
+
+  // Nếu BE trả về string URL
+  if (typeof files === "string") {
+    return [
+      {
+        uid: "0",
+        name: files.split("/").pop(),
+        status: "done",
+        url: files,
+      },
+    ];
+  }
+
+  return [];
+};
+
 
   const renderAttachment = (dinhKem) => {
     if (!dinhKem) return null;
@@ -230,7 +253,8 @@ export default function CitizenPage() {
       }
 
       const processFiles = async (fileList, fieldName) => {
-        if (!fileList || !Array.isArray(fileList)) return null;
+        if (!fileList || !Array.isArray(fileList)) return [];
+
         const uploadedFiles = [];
 
         for (const f of fileList) {
@@ -241,8 +265,9 @@ export default function CitizenPage() {
             } else {
               uploadedFiles.push(f.url);
             }
+
           } else if (f.originFileObj) {
-            // File mới cần upload
+            // ✅ File mới upload
             try {
               const formData = new FormData();
               formData.append(fieldName, f.originFileObj);
@@ -256,14 +281,16 @@ export default function CitizenPage() {
                 // Nếu backend trả về file info khác
                 uploadedFiles.push(res.files[0]);
               }
-            } catch (uploadErr) {
-              console.error("Error uploading file:", uploadErr);
+            } catch (err) {
+              console.error("Error uploading file:", err);
               message.warning(`Không thể upload file ${f.name}`);
             }
           }
         }
-        return uploadedFiles.length === 1 ? uploadedFiles[0] : uploadedFiles;
+        return uploadedFiles;
       };
+
+
 
       const normalizedValues = {
         ...values,

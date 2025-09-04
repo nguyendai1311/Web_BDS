@@ -1,119 +1,95 @@
-import React, { useState } from "react";
-import { Layout, Menu } from "antd";
+import React, { useState } from 'react'
+import { Layout, Menu, Modal } from 'antd'
 import {
-  AppstoreOutlined,
-  CalendarOutlined,
+  UserOutlined,
   TeamOutlined,
-  DropboxOutlined,
-  BarChartOutlined,
-  LogoutOutlined,
-  CarryOutOutlined,
+  ProjectOutlined,
+  HomeOutlined,
+  FileTextOutlined,
+  CalendarOutlined,
+  CheckCircleOutlined,
+  FileDoneOutlined,
   TrophyOutlined,
+  LogoutOutlined,
+} from '@ant-design/icons'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
+import { resetUser } from '../../../redux/slices/userSlice'
 
-} from "@ant-design/icons";
-import { SidebarWrapper, LogoSection, StyledModal } from "./style";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { resetUser } from "../../../redux/slices/userSlice";
-
-const { Sider } = Layout;
+const { Sider } = Layout
 
 const Sidebar = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const location = useLocation()
+  const navigate = useNavigate()
+  const dispatch = useDispatch()
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
+  const user = useSelector(state => state.user.user)
 
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-
-  const user = useSelector((state) => state.user.user);
-  const role = user?.role;
-  console.log("user", user);
-
-
-  const showLogoutConfirm = () => {
-    setIsLogoutModalOpen(true);
-  };
-
+  const showLogoutConfirm = () => setIsLogoutModalOpen(true)
   const handleConfirmLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    dispatch(resetUser());
-    setIsLogoutModalOpen(false);
-    navigate("/sign-in");
-  };
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    dispatch(resetUser())
+    setIsLogoutModalOpen(false)
+    navigate('/sign-in')
+  }
+  const handleCancelLogout = () => setIsLogoutModalOpen(false)
 
-  const handleCancelLogout = () => {
-    setIsLogoutModalOpen(false);
-  };
+  const getMenuItems = () => {
+    const items = []
+
+    if (user?.roles?.includes('admin')) {
+      items.push(
+        { key: '/system/admin/citizens', label: <Link to="/system/admin/citizens">Quản lý hộ dân</Link>, icon: <UserOutlined /> },
+        { key: '/system/admin/employees', label: <Link to="/system/admin/employees">Quản lý nhân viên</Link>, icon: <TeamOutlined /> },
+        { key: '/system/admin/project', label: <Link to="/system/admin/project">Quản lý dự án</Link>, icon: <ProjectOutlined /> },
+        { key: '/system/admin/lands', label: <Link to="/system/admin/lands">Quản lý đất</Link>, icon: <HomeOutlined /> },
+        { key: '/system/admin/report', label: <Link to="/system/admin/report">Báo cáo & Thống kê</Link>, icon: <FileTextOutlined /> }
+      )
+    }
+
+    if (user?.roles?.includes('employee')) {
+      items.push(
+        { key: '/system/teacher/schedule', label: <Link to="/system/teacher/schedule">Lịch giảng dạy</Link>, icon: <CalendarOutlined /> },
+        { key: '/system/teacher/attendance-management', label: <Link to="/system/teacher/attendance-management">Quản lý điểm danh</Link>, icon: <CheckCircleOutlined /> },
+        { key: '/system/teacher/exams', label: <Link to="/system/teacher/exams">Quản lý bài thi</Link>, icon: <FileDoneOutlined /> },
+        { key: '/system/teacher/score-management', label: <Link to="/system/teacher/score-management">Quản lý điểm</Link>, icon: <TrophyOutlined /> }
+      )
+    }
+
+    items.push({ key: 'logout', label: 'Thoát', icon: <LogoutOutlined />, onClick: showLogoutConfirm })
+
+    return items
+  }
 
   return (
-    <Sider width={240} theme="dark">
-      <SidebarWrapper>
-        <Link to="/">
-          <LogoSection>
-            <img src={''} alt="King-chess" />
-            <h3>KING-CHESS</h3>
-            <span className="status">● Online</span>
-          </LogoSection>
+    <Sider width={240} theme="light" className="bg-white shadow-lg h-screen sticky top-0">
+      <div className="flex flex-col items-center p-4">
+        <Link to="/" className="flex flex-col items-center">
+          <img
+            src="https://qlvb.tphcm.gov.vn/qlvbdh/login/img/logo-header.png"
+            alt="Logo"
+            className="w-24 h-24 rounded-md mb-2"
+          />
+          <h3 className="text-red-500 text-center text-sm font-semibold truncate">
+            Ban bồi thường giải phóng
+          </h3>
+          <h3 className="text-red-500 text-center text-sm font-semibold mb-1 truncate">
+            mặt bằng quận bình thạnh
+          </h3>
+          <span className="text-green-500 text-xs">● Online</span>
         </Link>
+      </div>
 
-        <Menu mode="inline" theme="dark" selectedKeys={[location.pathname]}>
-          {/* 👑 ADMIN MENU */}
-          {user?.roles?.includes("admin") && (
-            <>
-              <Menu.Item key="/system/admin/citizen" icon={<AppstoreOutlined />}>
-                <Link to="/system/admin/citizens">Quản lý hộ dân</Link>
-              </Menu.Item>
-              <Menu.Item key="/system/admin/employees" icon={<TeamOutlined />}>
-                <Link to="/system/admin/employees">Quản lý nhân viên</Link>
-              </Menu.Item>
-              <Menu.Item key="/system/admin/project" icon={<BarChartOutlined />}>
-                <Link to="/system/admin/project">Quản lý dự án</Link>
-              </Menu.Item>
-              <Menu.Item key="/system/admin/lands" icon={<BarChartOutlined />}>
-                <Link to="/system/admin/lands">Quản lý đất</Link>
-              </Menu.Item>
-              <Menu.Item key="/system/admin/report" icon={<BarChartOutlined />}>
-                <Link to="/system/admin/report">Báo cáo & Thống kê</Link>
-              </Menu.Item>
-            </>
-          )}
+      <Menu
+        mode="inline"
+        theme="light"
+        selectedKeys={[location.pathname]}
+        items={getMenuItems()}
+        className="bg-white border-r-0"
+      />
 
-          {/* 👨‍🏫 TEACHER MENU */}
-          {user?.roles?.includes("employee") && (
-            <>
-              <Menu.Item
-                key="/system/teacher/schedule"
-                icon={<CalendarOutlined />}
-              >
-                <Link to="/system/teacher/schedule">Lịch giảng dạy</Link>
-              </Menu.Item>
-              <Menu.Item key="/system/teacher/attendance-management" icon={<CarryOutOutlined />}>
-                <Link to="/system/teacher/attendance-management">Quản lý điểm danh</Link>
-
-              </Menu.Item>
-              <Menu.Item key="/system/teacher/exams" icon={<DropboxOutlined />}>
-                <Link to="/system/teacher/exams">Quản lý bài thi</Link>
-              </Menu.Item>
-              <Menu.Item key="/system/teacher/score-management" icon={<TrophyOutlined />}>
-                <Link to="/system/teacher/score-management">Quản lý điểm</Link>
-              </Menu.Item>
-            </>
-          )}
-
-          {/* 🚪 Đăng xuất */}
-          <Menu.Item
-            key="logout"
-            icon={<LogoutOutlined />}
-            onClick={showLogoutConfirm}
-          >
-            Thoát
-          </Menu.Item>
-        </Menu>
-      </SidebarWrapper>
-
-      {/* Modal xác nhận đăng xuất */}
-      <StyledModal
+      <Modal
         title="Xác nhận đăng xuất"
         open={isLogoutModalOpen}
         onOk={handleConfirmLogout}
@@ -122,9 +98,9 @@ const Sidebar = () => {
         cancelText="Hủy"
       >
         <p>Bạn có chắc chắn muốn thoát không?</p>
-      </StyledModal>
+      </Modal>
     </Sider>
-  );
-};
+  )
+}
 
-export default Sidebar;
+export default Sidebar
